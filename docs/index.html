@@ -1,0 +1,3426 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Verticale</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;600;700&display=swap">
+<style>
+/* Concept : plan d'architecte. Cartouche en haut, tour en coupe au centre, palette d'outils en bas.
+   Chrome (panneaux) suit le thème du viewer ; le monde (ciel, tour) est dessiné sur canvas. */
+:root {
+  --bg: #dfe5eb;
+  --panel: #f6f8fa;
+  --panel-2: #e8edf2;
+  --ink: #15202b;
+  --ink-2: #566471;
+  --line: #c6cfd8;
+  --accent: #1f4fd8;
+  --accent-ink: #ffffff;
+  --good: #167a45;
+  --warn: #a96300;
+  --bad: #c0352a;
+  --star: #e2a007;
+  --shadow: 0 6px 22px rgba(12, 24, 44, .20);
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --panel: #17212b; --panel-2: #1f2a36; --ink: #e6ecf1; --ink-2: #9aa8b5; --line: #2c3946;
+    --accent: #8aa8ff; --accent-ink: #0a1430; --good: #4cc38a; --warn: #e8a93a; --bad: #ff7a6b; --star: #f2bc3a;
+    --shadow: 0 6px 22px rgba(0, 0, 0, .5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --panel: #17212b; --panel-2: #1f2a36; --ink: #e6ecf1; --ink-2: #9aa8b5; --line: #2c3946;
+  --accent: #8aa8ff; --accent-ink: #0a1430; --good: #4cc38a; --warn: #e8a93a; --bad: #ff7a6b; --star: #f2bc3a;
+  --shadow: 0 6px 22px rgba(0, 0, 0, .5); color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  position: relative; overflow: hidden; background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 14px; line-height: 1.35;
+  overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: var(--bg); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.layer { position: absolute; left: 0; right: 0; pointer-events: none; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.layer > * { pointer-events: auto; }
+
+/* cartouche */
+#hud { top: 0; padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cart { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); display: grid; grid-template-columns: auto 1fr auto; align-items: stretch; }
+.cart .menu { width: 48px; display: grid; place-items: center; border-right: 1px solid var(--line); color: var(--ink); }
+.cart .cash { padding: 4px 12px 5px; min-width: 0; }
+.lbl { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); font-weight: 700; }
+.num { font-family: var(--font-display); font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.cash .num { font-size: 27px; line-height: 1; display: block; }
+.cash .num.neg { color: var(--bad); }
+.cart .clock { padding: 4px 12px 5px; border-left: 1px solid var(--line); text-align: right; }
+.clock .num { font-size: 27px; line-height: 1; display: block; }
+.clock .lbl { display: block; }
+.row2 { display: flex; align-items: stretch; gap: 6px; }
+.stats { display: flex; flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.stat { flex: 1; padding: 4px 8px 5px; min-width: 0; border-left: 1px solid var(--line); text-align: left; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.stat:first-child { border-left: 0; }
+.stat .num { font-size: 19px; line-height: 1.05; display: block; white-space: nowrap; }
+.stars { color: var(--star); letter-spacing: 1px; font-size: 15px; font-family: var(--font-body); font-weight: 700; }
+.stars i { font-style: normal; opacity: .28; }
+.stars i.on { opacity: 1; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: var(--good); vertical-align: 1px; }
+.speed { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.speed button { min-width: 48px; min-height: 44px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.speed button + button { border-left: 1px solid var(--line); }
+.speed button[aria-pressed="true"] { color: var(--accent); }
+
+/* toasts + conseils */
+#toasts { top: 124px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.toast { pointer-events: auto; background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-weight: 600; font-size: 13px; box-shadow: var(--shadow); max-width: 100%; text-align: center; animation: tin .2s ease-out; }
+.toast.warn { background: var(--warn); color: var(--bg); }
+.toast.good { background: var(--good); color: var(--bg); }
+.toast.big { border-radius: 14px; padding: 12px 16px; font-size: 14px; }
+@keyframes tin { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+#advice { bottom: 200px; }
+.adv { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 10px; box-shadow: var(--shadow); padding: 8px 6px 8px 12px; font-size: 13px; }
+.adv.bad { border-left-color: var(--bad); }
+.adv.info { border-left-color: var(--accent); }
+.adv span { flex: 1; min-width: 0; }
+.adv button { min-width: 44px; min-height: 44px; display: grid; place-items: center; color: var(--ink-2); font-weight: 700; }
+.adv button.go { color: var(--accent); min-width: 0; padding: 0 8px; }
+
+/* barre de construction */
+#build { bottom: 132px; }
+.bbar { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bbar .info { flex: 1 1 140px; min-width: 0; }
+.bbar .t { font-weight: 700; font-size: 14px; }
+.bbar .s { font-size: 12px; color: var(--ink-2); }
+.bbar .s.err { color: var(--bad); font-weight: 600; }
+.bbar .price { font-family: var(--font-display); font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; }
+.btn { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.bad { color: var(--bad); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.sm { min-height: 40px; padding: 0 10px; font-size: 13px; }
+
+/* palette */
+#dock { bottom: 0; padding-bottom: 8px; }
+.dock { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); display: flex; gap: 6px; padding: 6px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+.dock::-webkit-scrollbar { display: none; }
+.cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 0 2px 6px; touch-action: pan-x; }
+.cats::-webkit-scrollbar { display: none; }
+.cat { flex: 0 0 auto; min-height: 32px; padding: 0 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); color: var(--ink-2); font-size: 12.5px; font-weight: 700; box-shadow: var(--shadow); }
+.cat i { font-style: normal; color: var(--star); font-size: 10px; }
+.cat[aria-selected="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.tool { flex: 0 0 auto; width: 74px; min-height: 66px; border-radius: 9px; border: 1.5px solid transparent; background: var(--panel-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 2px; text-align: center; position: relative; }
+.tool .sw { width: 30px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: #1a2330; border: 1px solid rgba(0, 0, 0, .15); }
+.tool .sw svg { width: 18px; height: 18px; }
+.tool .nm { font-size: 11px; font-weight: 700; line-height: 1.1; }
+.tool .pr { font-size: 10.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tool[aria-pressed="true"] { border-color: var(--accent); background: var(--panel); }
+.tool.poor .pr { color: var(--bad); }
+.tool.locked { opacity: .5; }
+.tool.locked .pr { color: var(--star); font-weight: 700; }
+.tool.hand { background: transparent; }
+
+/* panneaux */
+#sheetwrap { inset: 0; padding: 0; display: none; }
+#sheetwrap.show { display: block; }
+#sheetwrap .back { position: absolute; inset: 0; background: rgba(8, 14, 24, .55); pointer-events: auto; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 86%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: var(--shadow); pointer-events: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet.room { bottom: 0; max-height: 46%; }
+.sheet header { display: flex; align-items: center; gap: 8px; padding: 12px 0 8px; }
+.sheet h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; flex: 1; min-width: 0; line-height: 1.05; text-wrap: balance; }
+.sheet .x { min-width: 44px; min-height: 44px; display: grid; place-items: center; font-size: 20px; color: var(--ink-2); }
+.sbody { overflow-y: auto; padding: 0 0 calc(16px + env(safe-area-inset-bottom, 0px)); -webkit-user-select: text; user-select: text; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { flex: 0 0 auto; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); font-weight: 700; font-size: 13px; color: var(--ink-2); }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 8px 0; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: var(--panel-2); overflow: hidden; border: 1px solid var(--line); }
+.bar i { display: block; height: 100%; background: var(--good); }
+.bar i.mid { background: var(--warn); }
+.bar i.low { background: var(--bad); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.chip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.chip.neg { color: var(--bad); }
+.chip.pos { color: var(--good); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.goal { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--line); }
+.goal:first-of-type { border-top: 0; }
+.goal .ck { flex: 0 0 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.goal.done .ck { background: var(--good); border-color: var(--good); color: var(--accent-ink); }
+.goal.now .ck { border-color: var(--accent); }
+.goal.done { color: var(--ink-2); }
+.goal b { display: block; }
+.goal small { color: var(--ink-2); }
+.p { margin: 8px 0; color: var(--ink-2); }
+.p b { color: var(--ink); }
+.help li { margin: 6px 0; }
+.rankcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.rankcard .stars { font-size: 20px; }
+.chart { overflow-x: auto; }
+.chart svg { display: block; min-width: 100%; }
+.tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.tbl td { padding: 6px 0; border-top: 1px solid var(--line); }
+.tbl td:last-child { text-align: right; font-weight: 700; }
+.tbl.cols { font-size: 12.5px; }
+.tbl.cols td { padding: 6px 4px; }
+.tbl.cols td:not(:first-child) { text-align: right; font-weight: 600; }
+.tbl.cols td:first-child { padding-left: 0; font-weight: 700; }
+.tbl.cols tr.th td { border-top: 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); font-weight: 700; }
+.fxl, .jrn { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.4; }
+.fxl li { padding: 5px 0; border-top: 1px solid var(--line); }
+.jrn li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; gap: 10px; }
+.jrn li span { flex: 0 0 auto; min-width: 28px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.jrn li.bad { color: var(--bad); } .jrn li.good { color: var(--good); }
+.over h2 { color: var(--bad); }
+.code { display: block; width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; margin-top: 8px; padding: 8px; font: 12px/1.3 ui-monospace, "SF Mono", Menlo, Consolas, monospace; word-break: break-all; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; -webkit-user-select: text; user-select: text; }
+.code:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fine { font-size: 12px; color: var(--ink-2); margin: 6px 0 0; min-height: 1.3em; }
+.lbl.sub { display: block; margin-top: 20px; }
+.p.err { color: var(--bad); font-weight: 600; }
+.msg .p { margin: 8px 0 0; }
+.warnp { border-left: 3px solid var(--warn); padding-left: 8px; }
+@media (min-width: 700px) {
+  .sheet { left: 50%; right: auto; width: 520px; transform: translateX(-50%); }
+  #advice, #build { left: 50%; right: auto; width: 520px; transform: translateX(-50%); padding-left: 0; padding-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+</style>
+
+<canvas id="cv" aria-label="Coupe de la tour"></canvas>
+<div id="hud" class="layer">
+  <div class="cart">
+    <button class="menu" id="btn-menu" aria-label="Menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="cash"><span class="lbl">Trésorerie</span><span class="num" id="h-cash">0 €</span></div>
+    <div class="clock"><span class="lbl" id="h-date">Lun. 1 mars</span><span class="num" id="h-time">07:00</span></div>
+  </div>
+  <div class="row2">
+    <div class="stats">
+      <button class="stat" id="st-rank" style="text-align:left" aria-label="Rang et objectifs"><span class="lbl">Rang</span><span class="stars" id="h-stars"></span></button>
+      <div class="stat"><span class="lbl">Habitants</span><span class="num" id="h-pop">0</span></div>
+      <div class="stat"><span class="lbl">Satisf.</span><span class="num"><span class="dot" id="h-dot"></span><span id="h-sat">70</span>%</span></div>
+    </div>
+    <div class="speed">
+      <button id="btn-pause" aria-label="Pause" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+      <button id="btn-speed" aria-label="Vitesse">2×</button>
+    </div>
+  </div>
+</div>
+<div id="toasts" class="layer"></div>
+<div id="advice" class="layer" hidden></div>
+<div id="build" class="layer" hidden></div>
+<div id="dock" class="layer"><div class="cats" id="cats" role="tablist" aria-label="Catégories de pièces"></div><div class="dock" id="tools" role="toolbar" aria-label="Outils de construction"></div></div>
+<div id="sheetwrap" class="layer"></div>
+
+<script>
+'use strict';
+/* Verticale — moteur de simulation (sans DOM, testable sous Node) */
+(function (root) {
+
+const COLS = 40, FMIN = -3, FMAX = 45, NF = FMAX - FMIN + 1;
+const DAY = 1440;            // minutes de jeu par jour
+const MPS = 5;               // minutes de jeu par seconde de simulation
+const STEP = 0.1;            // pas de simulation (s)
+const WALK = 3.2, STAIR_T = 2.6, ELEV_V = 2.8, CAP = 8, MAX_CARS = 4;
+const CAR_COST = 2500, CAR_UPKEEP = 80;
+const RANK_FLOORS = [0, 6, 12, 20, 32, 45];
+const RANK_BASE = [0, -1, -1, -2, -3, -3];
+const RANK_POP = [0, 0, 20, 60, 140, 260];
+const RANK_SAT = [0, 0, 0, 52, 60, 66];
+const BASE_DATE = [2027, 2, 1]; // lundi 1er mars
+
+// lease = loué à un locataire ; floors : up (>=0) | basement (<0) | ground (=0) | any
+// cat : base | home | work | shop | leisure | service (palette)
+// Commerces : cap (visiteurs simultanés max), hours [ouverture, fermeture] en minutes (fermeture > 1440 = après minuit),
+//   days 'week' (lun-ven), price [min, max] par visite, dur [min, max] minutes, flow (attrait), prof (profil horaire),
+//   tgt (visites/jour pour une satisfaction pleine), tags (choix des clients), svc (commodités offertes), noise (poids sonore, négatif = apaise)
+// Employés : wk 'office' (semaine, déjeuner) | 'shop' | 'resto' (horaires du commerce), staff [min, max]
+// Logement : res (habitants), base/nk/sk/vk/amen : réglages de satisfaction
+// Services (service: true) : toujours « occupés », sans loyer ; fx : effet global ; income : revenu par jour
+const TYPES = {
+  hall:    { cat: 'base', name: 'Hall', w: 4, h: 1, cost: 1500,  upkeep: 12, rank: 1, floors: 'ground',
+             desc: 'Seule porte d’entrée de la tour. Plus de halls attirent plus de monde.' },
+  elev:    { cat: 'base', name: 'Ascenseur', ab: 'Asc.', w: 1, h: 1, cost: 700,   upkeep: 10, rank: 1, floors: 'any', noise: 5,
+             desc: 'Glissez sur la hauteur voulue. La première cabine est incluse.' },
+  stair:   { cat: 'base', name: 'Escalier', w: 2, h: 2, cost: 1100,  upkeep: 8,  rank: 1, floors: 'any', noise: 2,
+             desc: 'Relie deux étages. Pratique en bas de la tour, trop lent au-delà.' },
+
+  studio:  { cat: 'home', name: 'Studio', w: 1, h: 1, cost: 1300, upkeep: 8, rent: 105, rank: 1, lease: true, floors: 'up', base: 80, res: [1, 1],
+             desc: 'Une pièce pour une personne. Bon marché, moins confortable.' },
+  apt:     { cat: 'home', name: 'Appartement', ab: 'Appart.', w: 2, h: 1, cost: 2400,  upkeep: 14, rent: 200, rank: 1, lease: true,  floors: 'up', base: 86,
+             desc: 'Loge un ou deux habitants. Aime le calme, la hauteur et la propreté.' },
+  loft:    { cat: 'home', name: 'Loft', w: 3, h: 1, cost: 6200, upkeep: 22, rent: 520, rank: 3, lease: true, floors: 'up', minF: 2, base: 88, nk: 1.25, vk: 1.4, amen: 1.4, res: [2, 3],
+             desc: 'Grand volume pour deux ou trois personnes. Très sensible au bruit, adore la vue et les commodités.' },
+  pent:    { cat: 'home', name: 'Penthouse', ab: 'Penth.', w: 4, h: 1, cost: 14000, upkeep: 30, rent: 1100, rank: 4, lease: true, floors: 'up', minF: 8, base: 92, nk: 1.5, sk: 1.3, res: [2, 2],
+             desc: 'Luxe, à partir du 8e étage. Exige un ascenseur rapide.' },
+
+  office:  { cat: 'work', name: 'Bureau', w: 3, h: 1, cost: 4800,  upkeep: 26, rent: 380, rank: 2, lease: true, floors: 'up', wk: 'office', staff: [3, 4], nk: 0.5, base: 86,
+             desc: 'Quatre employés arrivent le matin et déjeunent à midi.' },
+  cowork:  { cat: 'work', name: 'Coworking', ab: 'Cowork.', w: 4, h: 1, cost: 7600, upkeep: 40, rent: 520, rank: 3, lease: true, floors: 'up', wk: 'office', staff: [5, 7], nk: 0.5, base: 88, noise: 2,
+             desc: 'Postes partagés, beaucoup de monde en semaine. Apprécie les cafés et la salle de sport.' },
+  openspace: { cat: 'work', name: 'Open space', ab: 'Open sp.', w: 6, h: 1, cost: 15000, upkeep: 70, rent: 980, rank: 4, lease: true, floors: 'up', wk: 'office', staff: [8, 10], nk: 0.4, base: 86, noise: 3,
+             desc: 'Un grand plateau de dix employés. Demande des ascenseurs rapides.' },
+  bank:    { cat: 'work', name: 'Banque', w: 3, h: 1, cost: 9000, upkeep: 45, rent: 480, rank: 4, lease: true, floors: 'up', wk: 'office', staff: [3, 4], nk: 0.4, base: 86, noise: 1,
+             cap: 3, hours: [540, 1020], days: 'week', price: [4, 16], dur: [8, 18], flow: 0.6, prof: 'day', tags: ['any'], fx: 'bank',
+             desc: 'Agence ouverte en semaine. Un banquier installé ramène l’intérêt de vos prêts à 0,3 % par jour.' },
+  clinic:  { cat: 'work', name: 'Clinique', ab: 'Clinique', w: 3, h: 1, cost: 8500, upkeep: 42, rent: 470, rank: 3, lease: true, floors: 'up', wk: 'office', staff: [2, 3], nk: 0.4, base: 86, noise: 1,
+             cap: 3, hours: [480, 1140], days: 'week', price: [20, 60], dur: [20, 40], flow: 0.7, prof: 'day', tags: ['any'], svc: ['health'],
+             desc: 'Médecins en semaine. Les habitants apprécient d’avoir un cabinet dans la tour.' },
+  daycare: { cat: 'work', name: 'Crèche', w: 3, h: 1, cost: 6800, upkeep: 38, rent: 360, rank: 3, lease: true, floors: 'up', wk: 'office', staff: [2, 3], nk: 0.6, base: 86, noise: 4, svc: ['kids'],
+             desc: 'Rassure les familles : un atout pour les logements. On y entend des enfants.' },
+
+  shop:    { cat: 'shop', name: 'Boutique', w: 3, h: 1, cost: 4200,  upkeep: 22, rent: 240, rank: 2, lease: true, floors: 'up', cap: 4,
+             hours: [600, 1170], price: [15, 23], dur: [8, 20], flow: 1, prof: 'day', tgt: 10, tags: ['shop', 'any'], svc: ['shop'], wk: 'shop', staff: [1, 2], noise: 6,
+             desc: 'Vit des passages. Mieux placée près du hall et de l’ascenseur.' },
+  bakery:  { cat: 'shop', name: 'Boulangerie', ab: 'Boulang.', w: 2, h: 1, cost: 2600, upkeep: 14, rent: 160, rank: 2, lease: true, floors: 'up', cap: 3,
+             hours: [390, 1170], price: [3, 8], dur: [5, 10], flow: 0.9, prof: 'morn', tags: ['shop', 'lunch', 'any'], svc: ['shop'], wk: 'shop', staff: [1, 2], noise: 1,
+             desc: 'Pain frais dès 6 h 30. Beaucoup de petites ventes le matin.' },
+  cafe:    { cat: 'shop', name: 'Café', w: 2, h: 1, cost: 2800, upkeep: 14, rent: 170, rank: 2, lease: true, floors: 'up', cap: 3,
+             hours: [420, 1140], price: [4, 9], dur: [10, 20], flow: 0.9, prof: 'morn', tags: ['lunch', 'any'], svc: ['food', 'cafe'], wk: 'shop', staff: [1, 2], noise: 3,
+             desc: 'Le premier café des habitants et des employés. Un peu bruyant.' },
+  salon:   { cat: 'shop', name: 'Coiffeur', w: 2, h: 1, cost: 3000, upkeep: 14, rent: 180, rank: 2, lease: true, floors: 'up', cap: 2,
+             hours: [540, 1140], price: [18, 45], dur: [25, 45], flow: 0.5, prof: 'day', tags: ['any'], svc: ['beauty'], wk: 'shop', staff: [1, 2], noise: 1,
+             desc: 'Peu de clients mais des tickets élevés.' },
+  grocery: { cat: 'shop', name: 'Supérette', ab: 'Supér.', w: 4, h: 1, cost: 6500, upkeep: 34, rent: 380, rank: 3, lease: true, floors: 'up', cap: 6,
+             hours: [480, 1260], price: [12, 40], dur: [10, 20], flow: 1.4, prof: 'day', tags: ['shop', 'any'], svc: ['shop', 'grocery'], wk: 'shop', staff: [2, 3], noise: 4,
+             desc: 'Les courses sans sortir de chez soi : un vrai plus pour les logements.' },
+  pharmacy: { cat: 'shop', name: 'Pharmacie', ab: 'Pharma.', w: 2, h: 1, cost: 3800, upkeep: 20, rent: 230, rank: 3, lease: true, floors: 'up', cap: 3,
+             hours: [540, 1140], price: [8, 30], dur: [6, 12], flow: 0.6, prof: 'day', tags: ['shop', 'any'], svc: ['shop', 'health'], wk: 'shop', staff: [1, 2], noise: 1,
+             desc: 'Rassure les habitants. Clientèle régulière.' },
+  resto:   { cat: 'shop', name: 'Restaurant', ab: 'Resto', w: 4, h: 1, cost: 7800,  upkeep: 40, rent: 430, rank: 3, lease: true, floors: 'up', cap: 10,
+             hours: [690, 1350], price: [24, 36], dur: [35, 55], flow: 1.3, prof: 'day', tgt: 10, tags: ['lunch', 'any'], svc: ['food'], wk: 'resto', staff: [2, 3], noise: 10,
+             desc: 'Affluence à midi et le soir. Bruyant pour les voisins.' },
+
+  gym:     { cat: 'leisure', name: 'Salle de sport', ab: 'Sport', w: 4, h: 1, cost: 8200, upkeep: 44, rent: 450, rank: 3, lease: true, floors: 'any', cap: 6,
+             hours: [360, 1320], price: [6, 14], dur: [45, 75], flow: 1, prof: 'eve', tags: ['leisure', 'any'], svc: ['fitness'], wk: 'resto', staff: [2, 2], noise: 7,
+             desc: 'Pic tôt le matin et en soirée. Sa musique s’entend dans les étages voisins.' },
+  cinema:  { cat: 'leisure', name: 'Cinéma', w: 5, h: 1, cost: 14000, upkeep: 70, rent: 760, rank: 4, lease: true, floors: 'up', cap: 16,
+             hours: [840, 1500], price: [7, 13], dur: [90, 125], flow: 2.2, prof: 'eve', tags: ['leisure', 'any'], svc: ['leisure'], wk: 'resto', staff: [3, 3], noise: 6,
+             desc: 'Séances de 14 h à 1 h. Grosse affluence le soir et le week-end.' },
+  bar:     { cat: 'leisure', name: 'Bar-lounge', ab: 'Bar', w: 4, h: 1, cost: 7600, upkeep: 40, rent: 420, rank: 4, lease: true, floors: 'up', minF: 4, cap: 8,
+             hours: [1020, 1560], price: [6, 24], dur: [40, 90], flow: 1.3, prof: 'eve', tags: ['leisure', 'any'], svc: ['leisure'], wk: 'resto', staff: [2, 2], noise: 9,
+             desc: 'Ouvert de 17 h à 2 h, de l’étage 4 au sommet. Une belle vue vaut un bon chiffre d’affaires.' },
+  club:    { cat: 'leisure', name: 'Club', w: 5, h: 1, cost: 12000, upkeep: 60, rent: 620, rank: 4, lease: true, floors: 'basement', cap: 14,
+             hours: [1260, 1740], price: [15, 45], dur: [60, 120], flow: 2, prof: 'night', tags: ['leisure', 'any'], svc: ['leisure'], wk: 'resto', staff: [3, 3], noise: 16,
+             desc: 'Sous-sol uniquement, de 21 h à 5 h. Très bruyant : loin des logements.' },
+  observatory: { cat: 'leisure', name: 'Observatoire', ab: 'Observ.', w: 5, h: 1, cost: 24000, upkeep: 110, rent: 900, rank: 5, lease: true, floors: 'up', minF: 25, cap: 20,
+             hours: [540, 1320], price: [12, 22], dur: [20, 45], flow: 2.5, prof: 'day', tags: ['leisure', 'any'], svc: ['leisure'], wk: 'resto', staff: [3, 3], noise: 3,
+             desc: 'Panorama payant à partir du 25e étage. Les touristes montent en nombre.' },
+
+  janitor: { cat: 'service', name: 'Conciergerie', ab: 'Concierge', w: 2, h: 1, cost: 2000, upkeep: 70, rank: 2, floors: 'any', service: true, noise: 2,
+             desc: 'Un concierge nettoie les pièces sales, de 7 h à 19 h.' },
+  trash:   { cat: 'service', name: 'Local déchets', ab: 'Déchets', w: 2, h: 1, cost: 1800, upkeep: 10, rank: 2, floors: 'any', service: true, fx: 'trash',
+             desc: 'Les poubelles quittent les étages : la saleté s’accumule 20 % moins vite.' },
+  security: { cat: 'service', name: 'Poste de sécurité', ab: 'Sécurité', w: 2, h: 1, cost: 3500, upkeep: 55, rank: 3, floors: 'any', service: true, fx: 'sec', svc: ['sec'],
+             desc: 'Déjoue les cambriolages et rassure les habitants.' },
+  tech:    { cat: 'service', name: 'Local technique', ab: 'Technique', w: 3, h: 1, cost: 5200, upkeep: 40, rank: 3, floors: 'any', service: true, fx: 'tech',
+             desc: 'Moins de pannes d’ascenseur, réparées plus vite, et 20 % de moins sur leur entretien.' },
+  garden:  { cat: 'service', name: 'Jardin', w: 3, h: 1, cost: 4200, upkeep: 16, rank: 3, floors: 'up', service: true, noise: -6,
+             desc: 'Apaise et embellit les pièces proches (même étage ou voisins directs) : moins de bruit, plus de vue.' },
+  parking: { cat: 'service', name: 'Parking', ab: 'Parking', w: 4, h: 1, cost: 3200,  upkeep: 12, rent: 170, rank: 3, lease: true, floors: 'basement', noise: 3,
+             desc: 'Sous-sol uniquement. Un revenu calme qui valorise la tour.' },
+  solar:   { cat: 'service', name: 'Panneaux solaires', ab: 'Solaire', w: 3, h: 1, cost: 6500, upkeep: 6, rank: 4, floors: 'up', minF: 6, service: true, fx: 'solar', income: 75,
+             desc: 'Rapporte 75 € par jour, sans accès nécessaire. À poser en hauteur.' },
+  metro:   { cat: 'service', name: 'Station de métro', ab: 'Métro', w: 4, h: 1, cost: 20000, upkeep: 130, rank: 4, floors: 'basement', service: true, fx: 'metro',
+             desc: 'Sous-sol. Amène 30 % de clients en plus et rend la tour plus attirante.' },
+  heli:    { cat: 'service', name: 'Héliport', ab: 'Hélipad', w: 4, h: 1, cost: 30000, upkeep: 150, rank: 5, floors: 'up', minF: 30, service: true, fx: 'heli',
+             desc: 'Le luxe en toit-terrasse : penthouses loués plus vite et 10 % plus cher.' }
+};
+const ORDER = ['hall', 'elev', 'stair', 'studio', 'apt', 'loft', 'pent', 'office', 'cowork', 'openspace', 'bank', 'clinic', 'daycare',
+  'shop', 'bakery', 'cafe', 'grocery', 'pharmacy', 'salon', 'resto', 'gym', 'cinema', 'bar', 'club', 'observatory',
+  'janitor', 'trash', 'security', 'tech', 'garden', 'parking', 'solar', 'metro', 'heli'];
+const CATS = [['base', 'Base'], ['home', 'Logement'], ['work', 'Travail'], ['shop', 'Commerces'], ['leisure', 'Loisirs'], ['service', 'Services']];
+
+let S = null;
+let nav = { nodes: [], byFloor: new Map(), byShaft: new Map() };
+let segGrid = [];
+let reachSeg = new Set();
+let acc = 0;
+let pending = [];
+
+const rnd = () => Math.random();
+const rr = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const sgn = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+
+/* ───────────────────────── état ───────────────────────── */
+
+function newState() {
+  S = {
+    v: 1, T: 7 * 60, simT: 0, lastHour: 7, lastDay: 0,
+    cash: 40000, debt: 0, owned: { l: 14, r: 25 }, landBuys: 0, rank: 1,
+    nextId: 1, rooms: new Map(), shafts: new Map(),
+    grid: Array.from({ length: NF }, () => new Int32Array(COLS)),
+    agents: [], events: [], hist: [], today: { sales: 0 },
+    attr: 55, pop: 0, avgSat: 70, svc: {}, fx: {}, venues: 0, log: [],
+    goalIdx: 0, spawnAcc: 0, advice: [], over: false, debtDays: 0, stats: { moves: 0, outs: 0 }
+  };
+  segGrid = Array.from({ length: NF }, () => new Int32Array(COLS));
+  nav = { nodes: [], byFloor: new Map(), byShaft: new Map() };
+  addRoomRaw('hall', 0, 18);
+  rebuild();
+  return S;
+}
+
+function addRoomRaw(type, f, c, extra) {
+  const T = TYPES[type];
+  const r = Object.assign({
+    id: S.nextId++, type, f, c, w: T.w, h: T.h, tenant: false, sat: 70, dirt: 0,
+    vis: 0, visToday: 0, visAvg: 5, visY: 0, lost: 0, low: 0, trip: 10, reach: false,
+    cleaner: 0, noise: 0, green: 0, lvl: 0, pol: 0, bd: {}, shaft: 0, paid: T.cost
+  }, extra || {});
+  S.rooms.set(r.id, r);
+  for (let rowf = f; rowf < f + r.h; rowf++)
+    for (let k = c; k < c + r.w; k++) S.grid[rowf - FMIN][k] = r.id;
+  if (type === 'hall' || T.service) r.tenant = true;
+  return r;
+}
+
+function roomAt(f, c) {
+  if (f < FMIN || f > FMAX || c < 0 || c >= COLS) return null;
+  const id = S.grid[f - FMIN][c];
+  return id ? S.rooms.get(id) : null;
+}
+const segAt = (f, c) => (f < FMIN || f > FMAX || c < 0 || c >= COLS) ? 0 : segGrid[f - FMIN][c];
+const maxFloor = () => RANK_FLOORS[S.rank];
+const minFloor = () => RANK_BASE[S.rank];
+const dayOf = (T) => Math.floor(T / DAY);
+const wdayOf = (T) => dayOf(T) % 7;      // 0 = lundi
+const label = (f) => (f === 0 ? 'RDC' : f > 0 ? 'R+' + f : 'S' + f);
+
+function dateInfo() {
+  const d = new Date(BASE_DATE[0], BASE_DATE[1], BASE_DATE[2] + dayOf(S.T));
+  const jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const m = Math.floor(S.T % DAY);
+  return {
+    day: dayOf(S.T) + 1, wd: wdayOf(S.T), jour: jours[d.getDay()], date: d.getDate(), mois: mois[d.getMonth()],
+    hh: String(Math.floor(m / 60)).padStart(2, '0'), mm: String(m % 60).padStart(2, '0'), minute: m
+  };
+}
+
+function emit(e) { S.events.push(e); if (S.events.length > 300) S.events.splice(0, 100); }
+function toast(msg, level) { emit({ k: 'toast', msg, level: level || 'info' }); }
+
+/* ───────────────────────── construction ───────────────────────── */
+
+function costOf(type, f, c, o) {
+  const T = TYPES[type];
+  if (type !== 'elev') return T.cost;
+  o = o || {};
+  const f1 = o.f1 != null ? o.f1 : f;
+  const fa = Math.min(f, f1), fb = Math.max(f, f1);
+  let cost = (fb - fa + 1) * T.cost;
+  const below = roomAt(fa - 1, c), above = roomAt(fb + 1, c);
+  if (!((below && below.type === 'elev') || (above && above.type === 'elev'))) cost += CAR_COST;
+  return cost;
+}
+
+function canPlace(type, f, c, o) {
+  o = o || {};
+  const T = TYPES[type];
+  if (!T) return { ok: false, reason: 'Type inconnu' };
+  if (S.rank < T.rank) return { ok: false, reason: 'Rang ★' + T.rank + ' requis' };
+  const f1 = type === 'elev' && o.f1 != null ? o.f1 : f;
+  const fa = Math.min(f, f1), fb = Math.max(f, f1) + (type === 'elev' ? 0 : T.h - 1);
+  if (c < S.owned.l || c + T.w - 1 > S.owned.r) return { ok: false, reason: 'Hors de votre terrain' };
+  if (fa < minFloor()) return { ok: false, reason: 'Sous-sol limité (rang ★' + (S.rank + 1) + ')' };
+  if (fb > maxFloor()) return { ok: false, reason: 'Hauteur limitée à ' + label(maxFloor()) + ' (rang ★' + S.rank + ')' };
+  if (T.floors === 'ground' && f !== 0) return { ok: false, reason: 'Rez-de-chaussée uniquement' };
+  if (T.floors === 'basement' && fb >= 0) return { ok: false, reason: 'Sous-sol uniquement' };
+  if (T.floors === 'up' && fa < 0) return { ok: false, reason: 'Pas en sous-sol' };
+  if (T.minF && f < T.minF) return { ok: false, reason: 'À partir de ' + label(T.minF) };
+  for (let rowf = fa; rowf <= fb; rowf++)
+    for (let k = c; k < c + T.w; k++)
+      if (S.grid[rowf - FMIN][k]) return { ok: false, reason: 'Emplacement occupé' };
+  if (fa > 0)
+    for (let k = c; k < c + T.w; k++)
+      if (!S.grid[fa - 1 - FMIN][k]) return { ok: false, reason: 'Rien en dessous pour porter' };
+  return { ok: true, cost: costOf(type, f, c, o) };
+}
+
+function place(type, f, c, o) {
+  o = o || {};
+  const chk = canPlace(type, f, c, o);
+  if (!chk.ok) return chk;
+  if (S.cash < chk.cost) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= chk.cost;
+  let made = null;
+  if (type === 'elev') {
+    const f1 = o.f1 != null ? o.f1 : f;
+    const fa = Math.min(f, f1), fb = Math.max(f, f1);
+    const share = (chk.cost) / (fb - fa + 1);
+    for (let k = fa; k <= fb; k++) made = addRoomRaw('elev', k, c, { paid: share });
+  } else {
+    made = addRoomRaw(type, f, c, { paid: chk.cost });
+    if (type === 'janitor') { made.tenant = true; }
+  }
+  rebuild();
+  if (type === 'janitor') spawnTenantAgents(made, true);
+  emit({ k: 'sound', name: 'build' });
+  return { ok: true, id: made.id, cost: chk.cost };
+}
+
+function canDemolish(r) {
+  if (r.type === 'hall') {
+    let halls = 0;
+    for (const x of S.rooms.values()) if (x.type === 'hall') halls++;
+    if (halls <= 1) return { ok: false, reason: 'Gardez au moins un hall' };
+  }
+  const topf = r.f + r.h;
+  for (let k = r.c; k < r.c + r.w; k++) {
+    const above = roomAt(topf, k);
+    if (!above) continue;
+    if (r.type === 'elev' && above.type === 'elev') {
+      // on ne retire un ascenseur que par ses extrémités
+      return { ok: false, reason: 'Retirez l’ascenseur par le haut' };
+    }
+    return { ok: false, reason: 'Retirez d’abord ce qui est au-dessus' };
+  }
+  if (r.type === 'elev') {
+    const below = roomAt(r.f - 1, r.c);
+    const above = roomAt(r.f + 1, r.c);
+    if (below && below.type === 'elev' && above && above.type === 'elev') return { ok: false, reason: 'Retirez l’ascenseur par une extrémité' };
+  }
+  return { ok: true, refund: Math.round(r.paid * 0.5) };
+}
+
+function demolish(id) {
+  const r = S.rooms.get(id);
+  if (!r) return { ok: false, reason: 'Introuvable' };
+  const chk = canDemolish(r);
+  if (!chk.ok) return chk;
+  S.cash += chk.refund;
+  removeAgentsOf(r);
+  for (let rowf = r.f; rowf < r.f + r.h; rowf++)
+    for (let k = r.c; k < r.c + r.w; k++) S.grid[rowf - FMIN][k] = 0;
+  S.rooms.delete(id);
+  rebuild();
+  emit({ k: 'sound', name: 'demolish' });
+  return { ok: true, refund: chk.refund };
+}
+
+function landCost() { return Math.round(9000 * Math.pow(1.7, S.landBuys) / 100) * 100; }
+function buyLand(side) {
+  const cost = landCost();
+  if (side === 'l' && S.owned.l - 4 < 0) return { ok: false, reason: 'Limite du quartier' };
+  if (side === 'r' && S.owned.r + 4 > COLS - 1) return { ok: false, reason: 'Limite du quartier' };
+  if (S.cash < cost) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= cost; S.landBuys++;
+  if (side === 'l') S.owned.l -= 4; else S.owned.r += 4;
+  emit({ k: 'sound', name: 'cash' });
+  return { ok: true, cost };
+}
+
+function addCar(sid) {
+  const sh = S.shafts.get(sid);
+  if (!sh) return { ok: false, reason: 'Introuvable' };
+  if (sh.ncars >= MAX_CARS) return { ok: false, reason: 'Maximum ' + MAX_CARS + ' cabines' };
+  if (S.cash < CAR_COST) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= CAR_COST; sh.ncars++; syncCars(sh);
+  emit({ k: 'sound', name: 'build' });
+  return { ok: true };
+}
+function removeCar(sid) {
+  const sh = S.shafts.get(sid);
+  if (!sh || sh.ncars <= 1) return { ok: false, reason: 'Une cabine minimum' };
+  S.cash += Math.round(CAR_COST / 2); sh.ncars--;
+  const gone = sh.cars.pop();
+  for (const p of gone.pass) { p.f = Math.round(gone.y); p.x = sh.col + 0.5; p.fy = p.f; p.car = null; p.st = 'free'; resume(p); }
+  syncCars(sh);
+  return { ok: true };
+}
+function upgradeCost(sh) { return 4000 * sh.lvl; }
+function upgradeShaft(sid) {
+  const sh = S.shafts.get(sid);
+  if (!sh) return { ok: false, reason: 'Introuvable' };
+  if (sh.lvl >= 3) return { ok: false, reason: 'Déjà au maximum' };
+  if (S.rank < 3) return { ok: false, reason: 'Rang ★3 requis' };
+  const c = upgradeCost(sh);
+  if (S.cash < c) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= c; sh.lvl++;
+  emit({ k: 'sound', name: 'build' });
+  return { ok: true };
+}
+function upgradeRoomCost(r) { return Math.round(TYPES[r.type].cost * 0.5 * ((r.lvl || 0) + 1) / 10) * 10; }
+function upgradeRoom(id) {
+  const r = S.rooms.get(id);
+  if (!r) return { ok: false, reason: 'Introuvable' };
+  const T = TYPES[r.type];
+  if (!T.lease || r.type === 'parking') return { ok: false, reason: 'Pas de rénovation possible ici' };
+  if ((r.lvl || 0) >= 2) return { ok: false, reason: 'Déjà au niveau maximal' };
+  const c = upgradeRoomCost(r);
+  if (S.cash < c) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= c; r.lvl = (r.lvl || 0) + 1; r.paid += c;
+  emit({ k: 'sound', name: 'build' });
+  return { ok: true, cost: c };
+}
+function setPolicy(id, v) {
+  const r = S.rooms.get(id);
+  if (!r || !TYPES[r.type].rent) return { ok: false, reason: 'Pas de loyer ici' };
+  if (v !== -1 && v !== 0 && v !== 1) return { ok: false, reason: 'Réglage inconnu' };
+  r.pol = v;
+  return { ok: true };
+}
+function statsNow() {
+  const cats = {};
+  let leased = 0, tenants = 0, up = 0;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type], c = T.cat || 'base';
+    const o = cats[c] || (cats[c] = { n: 0, vac: 0, rent: 0, up: 0 });
+    o.n++; o.up += T.upkeep || 0; up += T.upkeep || 0;
+    if (T.lease) { leased++; if (r.tenant) { tenants++; o.rent += rentNow(r); } else o.vac++; }
+  }
+  let waits = 0, nw = 0;
+  for (const sh of S.shafts.values()) { waits += sh.wavg; nw++; }
+  return { cats, leased, tenants, occ: leased ? tenants / leased : 1, kinds: kindsBuilt(), wait: nw ? waits / nw : 0, interest: interestRate(), log: S.log };
+}
+function borrow() {
+  if (S.debt >= 60000) return { ok: false, reason: 'Plafond de dette atteint' };
+  S.cash += 20000; S.debt += 22000; emit({ k: 'sound', name: 'cash' });
+  return { ok: true };
+}
+function repay() {
+  const amt = Math.min(S.debt, 22000);
+  if (amt <= 0) return { ok: false, reason: 'Aucune dette' };
+  if (S.cash < amt) return { ok: false, reason: 'Fonds insuffisants' };
+  S.cash -= amt; S.debt -= amt; emit({ k: 'sound', name: 'cash' });
+  return { ok: true };
+}
+
+/* ───────────────────────── reconstruction (segments, ascenseurs, nav) ───────────────────────── */
+
+function homeFloor(sh, i) {
+  const lo = sh.f0 <= 0 && sh.f1 >= 0 ? 0 : sh.f0;
+  if (i === 0) return lo;
+  return clamp(Math.round(lo + (sh.f1 - lo) * (i / Math.max(1, sh.ncars))), sh.f0, sh.f1);
+}
+
+function syncCars(sh) {
+  while (sh.cars.length < sh.ncars) {
+    const i = sh.cars.length;
+    sh.cars.push({ id: S.nextId++, y: homeFloor(sh, i), dir: 0, nf: 0, st: 'idle', t: 0, pass: [], idle: 0, home: homeFloor(sh, i) });
+  }
+  while (sh.cars.length > sh.ncars) sh.cars.pop();
+  sh.cars.forEach((car, i) => { car.home = homeFloor(sh, i); });
+}
+
+function rebuildShafts() {
+  const used = new Set(), next = new Map();
+  for (let c = 0; c < COLS; c++) {
+    let f = FMIN;
+    while (f <= FMAX) {
+      const r = roomAt(f, c);
+      if (r && r.type === 'elev') {
+        const f0 = f, cells = [];
+        while (f <= FMAX) {
+          const rr2 = roomAt(f, c);
+          if (rr2 && rr2.type === 'elev') { cells.push(rr2); f++; } else break;
+        }
+        let best = null;
+        for (const cell of cells) {
+          const s = S.shafts.get(cell.shaft);
+          if (s && !used.has(s.id) && (!best || s.ncars > best.ncars)) best = s;
+        }
+        let sh;
+        if (best) { sh = best; used.add(sh.id); }
+        else sh = { id: S.nextId++, ncars: 1, lvl: 1, cars: [], q: {}, res: {}, wavg: 6 };
+        sh.col = c; sh.f0 = f0; sh.f1 = f - 1;
+        for (const cell of cells) cell.shaft = sh.id;
+        next.set(sh.id, sh);
+      } else f++;
+    }
+  }
+  for (const [id, old] of S.shafts) if (!next.has(id)) evictShaft(old);
+  S.shafts = next;
+  for (const sh of S.shafts.values()) {
+    sh.q = sh.q || {}; sh.res = sh.res || {};
+    syncCars(sh);
+    for (const car of sh.cars) {
+      if (car.y < sh.f0 || car.y > sh.f1) {
+        for (const p of car.pass) { p.f = clamp(Math.round(car.y), sh.f0, sh.f1); p.x = sh.col + 0.5; p.fy = p.f; p.car = null; later(p); }
+        car.pass = []; car.y = clamp(Math.round(car.y), sh.f0, sh.f1); car.st = 'idle'; car.dir = 0;
+      }
+      for (let i = car.pass.length - 1; i >= 0; i--) {
+        const p = car.pass[i];
+        if (p.dest < sh.f0 || p.dest > sh.f1) { car.pass.splice(i, 1); p.f = Math.round(car.y); p.x = sh.col + 0.5; p.fy = p.f; p.car = null; later(p); }
+      }
+    }
+    for (const k of Object.keys(sh.q)) {
+      const f = +k;
+      if (f < sh.f0 || f > sh.f1) {
+        for (const p of sh.q[k]) later(p);
+        delete sh.q[k];
+      }
+    }
+  }
+}
+
+function later(p) { p.st = 'free'; p.route = null; p.car = null; if (pending.indexOf(p) < 0) pending.push(p); }
+
+function evictShaft(old) {
+  for (const car of old.cars) for (const p of car.pass) {
+    p.f = Math.round(car.y); p.x = old.col + 0.5; p.fy = p.f; later(p);
+  }
+  for (const k of Object.keys(old.q || {})) for (const p of old.q[k]) later(p);
+}
+
+function flushPending() {
+  const list = pending; pending = [];
+  for (const p of list) {
+    if (p.dead) continue;
+    if (p.goal && p.goal.room && S.rooms.has(p.goal.room.id)) resume(p);
+    else { p.goal = null; p.cur = 0; decide(p); }
+  }
+}
+
+function rebuild() {
+  rebuildShafts();
+  // segments : suites de cases occupées sur un même étage
+  let sid = 1;
+  for (let i = 0; i < NF; i++) {
+    const row = S.grid[i], seg = segGrid[i];
+    let cur = 0;
+    for (let c = 0; c < COLS; c++) {
+      if (row[c]) { if (!cur) cur = sid++; seg[c] = cur; } else { cur = 0; seg[c] = 0; }
+    }
+  }
+  // noeuds de navigation
+  const nodes = [], byFloor = new Map(), byShaft = new Map();
+  const add = (n) => {
+    n.i = nodes.length; nodes.push(n);
+    if (!byFloor.has(n.f)) byFloor.set(n.f, []);
+    byFloor.get(n.f).push(n.i);
+    return n;
+  };
+  for (const sh of S.shafts.values()) {
+    const list = [];
+    for (let f = sh.f0; f <= sh.f1; f++) list.push(add({ kind: 'E', ref: sh.id, f, x: sh.col + 0.5, seg: segAt(f, sh.col) }).i);
+    byShaft.set(sh.id, list);
+  }
+  for (const r of S.rooms.values()) {
+    if (r.type !== 'stair') continue;
+    const a = add({ kind: 'S', ref: r.id, f: r.f, x: r.c + 0.5, seg: segAt(r.f, r.c) });
+    const b = add({ kind: 'S', ref: r.id, f: r.f + 1, x: r.c + 1.5, seg: segAt(r.f + 1, r.c + 1) });
+    a.partner = b.i; b.partner = a.i;
+  }
+  nav = { nodes, byFloor, byShaft };
+  // accessibilité depuis un hall
+  reachSeg = new Set();
+  const todo = [];
+  for (const r of S.rooms.values()) if (r.type === 'hall') {
+    const s = segAt(0, r.c);
+    if (s && !reachSeg.has(s)) { reachSeg.add(s); todo.push(s); }
+  }
+  const nodesBySeg = new Map();
+  for (const n of nodes) { if (!nodesBySeg.has(n.seg)) nodesBySeg.set(n.seg, []); nodesBySeg.get(n.seg).push(n); }
+  while (todo.length) {
+    const s = todo.pop();
+    for (const n of nodesBySeg.get(s) || []) {
+      const others = n.kind === 'E' ? byShaft.get(n.ref).map((i) => nodes[i]) : [nodes[n.partner]];
+      for (const o of others) if (o.seg && !reachSeg.has(o.seg)) { reachSeg.add(o.seg); todo.push(o.seg); }
+    }
+  }
+  for (const r of S.rooms.values()) r.reach = reachSeg.has(segAt(r.f, r.c));
+  computeNoise();
+  S.navVer = (S.navVer || 0) + 1;
+  fixStranded();
+  flushPending();
+}
+
+function computeNoise() {
+  const rooms = [...S.rooms.values()];
+  for (const r of rooms) {
+    r.noise = 0; r.green = 0;
+    const TR = TYPES[r.type];
+    if (TR.cat !== 'home' && TR.wk !== 'office') continue;
+    let n = 0, g = 0;
+    for (const o of rooms) {
+      if (o === r) continue;
+      const w = TYPES[o.type].noise;
+      if (!w) continue;
+      const gap = Math.max(o.c - (r.c + r.w), r.c - (o.c + o.w), 0);
+      let df = Infinity;
+      for (let rowf = o.f; rowf < o.f + o.h; rowf++) df = Math.min(df, Math.abs(rowf - r.f));
+      let k = 0;
+      if (df === 0) k = gap <= 0 ? 1 : gap <= 2 ? 0.45 : 0;
+      else if (df === 1 && gap <= 0) k = o.type === 'elev' ? 0.3 : 0.55;
+      n += w * k;
+      if (w < 0 && k > 0) g = Math.max(g, k);
+    }
+    r.noise = clamp(n, 0, 35); r.green = g;
+  }
+}
+
+function fixStranded() {
+  for (const a of S.agents) {
+    if (a.dead || a.st === 'ride' || a.st === 'away' || a.st === 'stair' || a.st === 'wait') continue;
+    const c = clamp(Math.floor(a.x), 0, COLS - 1);
+    if (segAt(a.f, c)) continue;
+    let best = -1, bd = 99;
+    for (let k = 0; k < COLS; k++) if (segAt(a.f, k) && Math.abs(k - a.x) < bd) { bd = Math.abs(k - a.x); best = k; }
+    if (best >= 0) { a.x = best + 0.5; }
+    else { sendAway(a); }
+  }
+}
+
+function removeAgentsOf(r) {
+  for (const a of S.agents) {
+    if (a.dead) continue;
+    if (a.home === r.id) dropAgent(a);
+    else if (a.goal && a.goal.room === r) { leaveQueues(a); a.goal = null; a.cur = 0; later(a); }
+    else if (a.cur === r.id) a.cur = 0;
+  }
+  S.agents = S.agents.filter((a) => !a.dead);
+}
+
+
+/* ───────────────────────── pathfinding ───────────────────────── */
+
+function Heap() { this.a = []; }
+Heap.prototype.push = function (c, i) {
+  const a = this.a; a.push([c, i]);
+  let k = a.length - 1;
+  while (k > 0) { const p = (k - 1) >> 1; if (a[p][0] <= a[k][0]) break; const t = a[p]; a[p] = a[k]; a[k] = t; k = p; }
+};
+Heap.prototype.pop = function () {
+  const a = this.a, top = a[0], last = a.pop();
+  if (a.length) {
+    a[0] = last; let k = 0;
+    for (;;) {
+      const l = 2 * k + 1, r = l + 1; let m = k;
+      if (l < a.length && a[l][0] < a[m][0]) m = l;
+      if (r < a.length && a[r][0] < a[m][0]) m = r;
+      if (m === k) break;
+      const t = a[m]; a[m] = a[k]; a[k] = t; k = m;
+    }
+  }
+  return top;
+};
+
+const queueLen = (sh, f) => (sh.q[f] ? sh.q[f].length : 0);
+const shaftSpeed = (sh) => ELEV_V * (1 + 0.3 * (sh.lvl - 1)) * (sh.slowUntil > S.T ? 0.45 : 1);
+
+function findRoute(f0, x0, f1, x1) {
+  const c0 = clamp(Math.floor(x0), 0, COLS - 1), c1 = clamp(Math.floor(x1), 0, COLS - 1);
+  const s0 = segAt(f0, c0), s1 = segAt(f1, c1);
+  if (!s0 || !s1) return null;
+  if (f0 === f1 && s0 === s1) return [{ t: 'walk', x: x1 }];
+  const N = nav.nodes, n = N.length;
+  if (!n) return null;
+  const dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1);
+  const H = new Heap();
+  for (const i of nav.byFloor.get(f0) || []) {
+    const u = N[i];
+    if (u.seg === s0) { const d = Math.abs(u.x - x0) / WALK; dist[i] = d; H.push(d, i); }
+  }
+  const relax = (j, i, nd) => { if (nd < dist[j]) { dist[j] = nd; prev[j] = i; H.push(nd, j); } };
+  while (H.a.length) {
+    const top = H.pop(), d = top[0], i = top[1];
+    if (d > dist[i]) continue;
+    const u = N[i];
+    for (const j of nav.byFloor.get(u.f)) {
+      if (j === i) continue;
+      const v = N[j];
+      if (v.seg !== u.seg) continue;
+      relax(j, i, d + Math.abs(v.x - u.x) / WALK + 0.05);
+    }
+    if (u.kind === 'E') {
+      const sh = S.shafts.get(u.ref);
+      const base = 2.2 / sh.ncars + queueLen(sh, u.f) * 0.9 / sh.ncars;
+      for (const j of nav.byShaft.get(u.ref)) {
+        if (j === i) continue;
+        relax(j, i, d + base + Math.abs(N[j].f - u.f) / shaftSpeed(sh) + 0.6);
+      }
+    } else relax(u.partner, i, d + STAIR_T);
+  }
+  let best = -1, bc = Infinity;
+  for (const i of nav.byFloor.get(f1) || []) {
+    const u = N[i];
+    if (u.seg !== s1 || dist[i] === Infinity) continue;
+    const c = dist[i] + Math.abs(u.x - x1) / WALK;
+    if (c < bc) { bc = c; best = i; }
+  }
+  if (best < 0) return null;
+  const path = [];
+  for (let i = best; i >= 0; i = prev[i]) path.push(N[i]);
+  path.reverse();
+  const steps = [{ t: 'walk', x: path[0].x }];
+  for (let i = 0; i < path.length - 1; i++) {
+    const u = path[i], v = path[i + 1];
+    if (u.f !== v.f && u.kind === 'E' && v.kind === 'E' && u.ref === v.ref) steps.push({ t: 'elev', sid: u.ref, from: u.f, to: v.f });
+    else if (u.f !== v.f && u.kind === 'S' && v.kind === 'S' && u.ref === v.ref) steps.push({ t: 'stair', rid: u.ref, from: u.f, to: v.f, x: v.x });
+    else steps.push({ t: 'walk', x: v.x });
+  }
+  steps.push({ t: 'walk', x: x1 });
+  return steps;
+}
+
+/* ───────────────────────── ascenseurs ───────────────────────── */
+
+function hasTarget(sh, car, f, dir) {
+  const lim = dir > 0 ? sh.f1 : sh.f0;
+  for (let k = f + dir; dir > 0 ? k <= lim : k >= lim; k += dir) {
+    if (sh.q[k] && sh.q[k].length) return true;
+    for (const p of car.pass) if (p.dest === k) return true;
+  }
+  return false;
+}
+
+function chooseDir(sh, car, f) {
+  if (car.dir !== 0) {
+    if (hasTarget(sh, car, f, car.dir)) return car.dir;
+    if (hasTarget(sh, car, f, -car.dir)) return -car.dir;
+    return 0;
+  }
+  let best = 0, bd = 99, bf = null;
+  for (let k = sh.f0; k <= sh.f1; k++) {
+    if (k === f) continue;
+    const waiting = sh.q[k] && sh.q[k].length;
+    const mine = car.pass.some((p) => p.dest === k);
+    if (!waiting && !mine) continue;
+    const r = sh.res[k];
+    if (waiting && !mine && r && r !== car.id && sh.cars.some((c) => c.id === r)) continue;
+    if (Math.abs(k - f) < bd) { bd = Math.abs(k - f); best = sgn(k - f); bf = k; }
+  }
+  if (bf !== null && sh.q[bf] && sh.q[bf].length) sh.res[bf] = car.id;
+  return best;
+}
+
+function serveFloor(sh, car, f) {
+  let moved = 0;
+  for (let i = car.pass.length - 1; i >= 0; i--) {
+    const p = car.pass[i];
+    if (p.dest === f) {
+      car.pass.splice(i, 1);
+      p.car = null; p.f = f; p.fy = f; p.x = sh.col + 0.5; p.ri++; moved++;
+      beginStep(p);
+    }
+  }
+  const q = sh.q[f];
+  if (q && q.length && car.pass.length < CAP) {
+    let want = car.dir;
+    if (car.dir === 0 || (car.pass.length === 0 && !hasTarget(sh, car, f, car.dir))) { want = sgn(q[0].dest - f); car.dir = want; }
+    for (let j = 0; j < q.length && car.pass.length < CAP;) {
+      const p = q[j];
+      if (sgn(p.dest - f) === want) {
+        q.splice(j, 1);
+        const w = S.simT - p.w0;
+        sh.wavg += (w - sh.wavg) * 0.08;
+        p.st = 'ride'; p.car = car; p.fy = f;
+        car.pass.push(p); moved++;
+      } else j++;
+    }
+    if (!q.length) delete sh.q[f];
+    if (sh.res[f] === car.id) delete sh.res[f];
+  }
+  if (moved) { car.st = 'dwell'; car.t = 0.8 + 0.12 * moved; return true; }
+  return false;
+}
+
+function stepCar(sh, car, dt) {
+  const v = shaftSpeed(sh);
+  let rem = dt;
+  if (car.st === 'dwell') { car.t -= rem; if (car.t > 0) return; rem = -car.t; car.st = 'idle'; }
+  let guard = 0;
+  while (rem > 1e-6 && guard++ < 6) {
+    if (car.st === 'idle') {
+      const f = car.y;
+      if (serveFloor(sh, car, f)) return;
+      car.dir = chooseDir(sh, car, f);
+      if (car.dir === 0) {
+        car.idle += rem;
+        if (car.idle > 4 && f !== car.home) { car.dir = sgn(car.home - f); car.nf = f + car.dir; car.st = 'move'; car.homing = true; }
+        else return;
+      } else { car.idle = 0; car.homing = false; car.nf = f + car.dir; car.st = 'move'; }
+    }
+    if (car.st === 'move') {
+      const need = Math.abs(car.nf - car.y) / v;
+      if (rem >= need) { car.y = car.nf; rem -= need; car.st = 'idle'; }
+      else { car.y += sgn(car.nf - car.y) * v * rem; return; }
+    }
+  }
+}
+
+/* ───────────────────────── agents ───────────────────────── */
+
+function mkAgent(kind, room, wk) {
+  const a = {
+    id: S.nextId++, kind, wk: wk || null, home: room ? room.id : 0, cur: 0, f: 0, x: 0, fy: 0, st: 'away', wakeAt: S.T,
+    col: Math.floor(rnd() * 8), ox: 0.2 + rnd() * 0.6, sp: 0.85 + rnd() * 0.3, s: {}, p: null, goal: null,
+    route: null, ri: 0, nv: 0, dir: 1, tripStart: null, awayUntil: 0, arrived: false
+  };
+  if (kind === 'res') { a.s.leave = 410 + rnd() * 120; a.s.ret = 1020 + rnd() * 150; }
+  else if (kind === 'work') {
+    const H = room && TYPES[room.type].hours;
+    if (wk === 'office') { a.s.arr = 470 + rnd() * 90; a.s.lun = 710 + rnd() * 100; a.s.lea = 1005 + rnd() * 90; }
+    else if (H) { a.s.arr = clamp(H[0] - rr(10, 30), 0, 1300); a.s.lea = Math.min(1435, H[1] + rr(5, 30)); }
+    else if (wk === 'shop') { a.s.arr = 560 + rnd() * 30; a.s.lea = 1155 + rnd() * 30; }
+    else { a.s.arr = 620 + rnd() * 30; a.s.lea = 1350 + rnd() * 60; }
+  }
+  return a;
+}
+
+function spawnTenantAgents(r, silent, restore) {
+  const list = [], T = TYPES[r.type];
+  if (r.type === 'apt') { const n = r.id % 5 < 3 ? 2 : 1; for (let i = 0; i < n; i++) list.push(mkAgent('res', r)); }
+  else if (T.res) { const n = T.res[0] + (r.id % (T.res[1] - T.res[0] + 1)); for (let i = 0; i < n; i++) list.push(mkAgent('res', r)); }
+  else if (T.staff && T.wk) { const n = T.staff[0] + (r.id % (T.staff[1] - T.staff[0] + 1)); for (let i = 0; i < n; i++) list.push(mkAgent('work', r, T.wk)); }
+  else if (r.type === 'janitor') list.push(mkAgent('jan', r));
+  for (const a of list) {
+    initAgent(a, r, restore);
+    S.agents.push(a);
+  }
+}
+
+function initAgent(a, r, restore) {
+  const m = S.T % DAY, wd = wdayOf(S.T);
+  a.p = { day: dayOf(S.T), left: true, shopDone: true, localDone: true, evDone: true, lunchDone: !!(a.s.lun && m > a.s.lun) };
+  const here = () => { a.f = r.f; a.fy = r.f; a.x = r.c + r.w * a.ox; a.cur = r.id; a.st = 'in'; a.wakeAt = S.T; };
+  if (a.kind === 'jan') { here(); return; }
+  if (a.kind === 'res') {
+    if (restore) {
+      if (wd < 5 && m > a.s.leave && m < a.s.ret) { a.st = 'away'; a.wakeAt = dayOf(S.T) * DAY + a.s.ret; } else here();
+    } else { a.st = 'away'; a.wakeAt = S.T + rr(8, 70); }
+    return;
+  }
+  const atWork = shouldBeAtWork(a);
+  if (restore) {
+    if (atWork) here(); else { a.st = 'away'; a.wakeAt = nextStart(a, S.T); }
+  } else { a.st = 'away'; a.wakeAt = atWork ? S.T + rr(8, 70) : nextStart(a, S.T); }
+}
+
+function shouldBeAtWork(a) {
+  const m = S.T % DAY, wd = wdayOf(S.T);
+  if (a.wk === 'office' && wd >= 5) return false;
+  return m >= a.s.arr && m < a.s.lea;
+}
+
+function nextStart(a, fromT) {
+  let d = dayOf(fromT);
+  for (let i = 0; i < 9; i++, d++) {
+    if (a.wk === 'office' && d % 7 >= 5) continue;
+    const t = d * DAY + a.s.arr;
+    if (t > fromT + 5) return t;
+  }
+  return fromT + DAY;
+}
+
+function leaveQueues(a) {
+  if (a.car) { const i = a.car.pass.indexOf(a); if (i >= 0) a.car.pass.splice(i, 1); a.car = null; }
+  if (a.st === 'wait') {
+    for (const sh of S.shafts.values()) for (const k of Object.keys(sh.q)) {
+      const i = sh.q[k].indexOf(a);
+      if (i >= 0) { sh.q[k].splice(i, 1); if (!sh.q[k].length) delete sh.q[k]; }
+    }
+  }
+  if (a.vroom) { const rm = S.rooms.get(a.vroom); if (rm && rm.vis > 0) rm.vis--; a.vroom = 0; }
+}
+
+function dropAgent(a) { leaveQueues(a); a.dead = true; }
+
+function sendAway(a) {
+  if (a.kind === 'cust') { dropAgent(a); return; }
+  leaveQueues(a);
+  a.cur = 0; a.route = null; a.goal = null; a.st = 'away'; a.wakeAt = a.awayUntil > S.T ? a.awayUntil : S.T + 30;
+}
+
+function planOf(a) {
+  const d = dayOf(S.T);
+  if (a.p && a.p.day === d) return a.p;
+  const wd = d % 7, wk = wd < 5;
+  const p = { day: d, left: false, shopDone: false, localDone: false, lunchDone: false };
+  if (a.kind === 'res') {
+    p.out = rnd() < (wk ? 0.9 : 0.55);
+    p.leave = wk ? a.s.leave : 600 + rnd() * 180;
+    p.ret = wk ? a.s.ret : 960 + rnd() * 360;
+    p.shopAfter = rnd() < (wk ? 0.3 : 0.55);
+    p.local = !p.out && rnd() < 0.55 ? 840 + rnd() * 360 : 0;
+    p.ev = rnd() < (wk ? 0.18 : 0.3) ? 1150 + rnd() * 170 : 0; p.evDone = false;
+  }
+  a.p = p;
+  return p;
+}
+
+function hallsOf() {
+  const out = [];
+  for (const r of S.rooms.values()) if (r.type === 'hall' && r.reach) out.push(r);
+  return out;
+}
+
+function flowOf(r, hr) { const T = TYPES[r.type]; return (T.flow || 0) * ((PROFILES[T.prof || 'day'] || HOUR_PROFILE)[hr] || 0); }
+
+function isOpen(r, m) {
+  if (!r.tenant || !r.reach) return false;
+  const T = TYPES[r.type];
+  if (!T.hours) return false;
+  if (T.days === 'week' && wdayOf(S.T) >= 5) return false;
+  const a = T.hours[0], b = T.hours[1];
+  return (m >= a && m < b) || (b > DAY && m < b - DAY);
+}
+
+function pickOpen(tag, m) {
+  const hr = Math.floor(m / 60), list = [];
+  let tot = 0;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type];
+    if (!T.tags || T.tags.indexOf(tag) < 0 || !isOpen(r, m)) continue;
+    if (r.vis >= T.cap) continue;
+    const w = Math.max(0.05, flowOf(r, hr));
+    tot += w; list.push([r, w]);
+  }
+  if (!list.length) return null;
+  let x = rnd() * tot;
+  for (const e of list) { x -= e[1]; if (x <= 0) return e[0]; }
+  return list[list.length - 1][0];
+}
+
+function visitDur(r) { const d = TYPES[r.type].dur || [8, 20]; return rr(d[0], d[1]); }
+
+function goTo(a, room, then, o) {
+  o = o || {};
+  if (!room || (room.id && !S.rooms.has(room.id))) { return goExitOrFail(a); }
+  a.goal = { room, then, dur: o.dur || 0, clean: !!o.clean };
+  let tx;
+  if (then === 'exit') tx = room.c + room.w / 2 + rr(-0.6, 0.6);
+  else tx = room.c + room.w * a.ox;
+  const route = findRoute(a.f, a.x, room.f, tx);
+  if (!route) return failTrip(a);
+  if (a.tripStart == null && a.kind !== 'cust') a.tripStart = S.simT;
+  a.route = route; a.ri = 0; a.nv = S.navVer; a.cur = 0;
+  if (a.st === 'visit' || a.st === 'in' || a.st === 'free') a.st = 'free';
+  beginStep(a);
+}
+
+function goExit(a, until) {
+  a.awayUntil = until;
+  const halls = hallsOf();
+  if (!halls.length) { a.cur = 0; a.st = 'away'; a.wakeAt = until; return; }
+  let best = halls[0], bd = 1e9;
+  for (const h of halls) { const d = Math.abs(h.c + h.w / 2 - a.x) + (h.reach ? 0 : 100); if (d < bd) { bd = d; best = h; } }
+  goTo(a, best, 'exit');
+}
+
+function goExitOrFail(a) {
+  if (a.kind === 'cust') { dropAgent(a); return; }
+  sendAway(a);
+}
+
+function failTrip(a) {
+  a.route = null;
+  if (a.kind === 'cust') { dropAgent(a); return; }
+  const g = a.goal;
+  if (g && g.then === 'exit') { sendAway(a); return; }
+  const home = S.rooms.get(a.home);
+  if (home) {
+    a.f = home.f; a.fy = home.f; a.x = home.c + home.w * a.ox; a.cur = home.id; a.st = 'in'; a.wakeAt = S.T + 30; a.tripStart = null;
+  } else dropAgent(a);
+}
+
+function resume(a) {
+  if (a.dead) return;
+  a.route = null;
+  if (a.goal && a.goal.room && S.rooms.has(a.goal.room.id)) goTo(a, a.goal.room, a.goal.then, a.goal);
+  else goExitOrFail(a);
+}
+
+function beginStep(a) {
+  if (a.nv !== S.navVer && a.route) {
+    // la tour a changé : on recalcule depuis la position actuelle
+    const g = a.goal; a.nv = S.navVer;
+    if (g && S.rooms.has(g.room.id)) {
+      const tx = g.then === 'exit' ? g.room.c + g.room.w / 2 : g.room.c + g.room.w * a.ox;
+      const route = findRoute(a.f, a.x, g.room.f, tx);
+      if (!route) return failTrip(a);
+      a.route = route; a.ri = 0;
+    } else return goExitOrFail(a);
+  }
+  const s = a.route && a.route[a.ri];
+  if (!s) return arrived(a);
+  if (s.t === 'walk') {
+    a.tx = s.x; a.st = 'walk';
+    if (Math.abs(a.tx - a.x) < 0.03) { a.ri++; beginStep(a); }
+  } else if (s.t === 'elev') {
+    const sh = S.shafts.get(s.sid);
+    if (!sh || s.from < sh.f0 || s.from > sh.f1 || s.to < sh.f0 || s.to > sh.f1) return resume(a);
+    a.dest = s.to; a.st = 'wait'; a.w0 = S.simT; a.shaft = sh.id; a.wf = s.from;
+    (sh.q[s.from] = sh.q[s.from] || []).push(a);
+  } else if (s.t === 'stair') {
+    if (!S.rooms.has(s.rid)) return resume(a);
+    a.st = 'stair'; a.sp = 0; a.sx0 = a.x; a.sx1 = s.x; a.sf0 = s.from; a.sf1 = s.to;
+  }
+}
+
+function recordTrip(a) {
+  if (a.tripStart == null) return;
+  const r = S.rooms.get(a.home);
+  const dt = S.simT - a.tripStart;
+  a.tripStart = null;
+  if (r) r.trip += (dt - r.trip) * 0.12;
+}
+
+function arrived(a) {
+  a.route = null;
+  const g = a.goal;
+  if (!g) { a.st = 'free'; return; }
+  if (g.then === 'stay') {
+    a.cur = g.room.id; a.st = 'in'; recordTrip(a); a.wakeAt = S.T; return;
+  }
+  if (g.then === 'visit') { recordTrip(a); return startVisit(a, g); }
+  if (g.then === 'exit') {
+    recordTrip(a);
+    if (a.kind === 'cust') { a.dead = true; return; }
+    a.cur = 0; a.st = 'away'; a.wakeAt = a.awayUntil > S.T ? a.awayUntil : S.T + 20;
+    return;
+  }
+}
+
+function startVisit(a, g) {
+  const room = g.room;
+  a.cur = room.id;
+  if (g.clean) { a.st = 'visit'; a.vroom = 0; a.wakeAt = S.T + g.dur; return; }
+  const T = TYPES[room.type];
+  if (T.cap) {
+    if (room.vis >= T.cap) { room.lost++; a.st = 'free'; a.cur = 0; return decide(a); }
+    room.vis++; room.visToday++; a.vroom = room.id;
+    const pr = T.price || [15, 23];
+    const price = Math.round((pr[0] + rnd() * (pr[1] - pr[0])) * (0.75 + room.sat / 200));
+    S.cash += price; S.today.sales += price;
+    room.dirt = Math.min(100, room.dirt + 1.1);
+    emit({ k: 'cash', amt: price, f: room.f, x: room.c + room.w / 2 });
+  }
+  a.st = 'visit'; a.wakeAt = S.T + (g.dur || 15);
+}
+
+function endVisit(a) {
+  const g = a.goal;
+  if (a.vroom) { const rm = S.rooms.get(a.vroom); if (rm && rm.vis > 0) rm.vis--; a.vroom = 0; }
+  if (g && g.clean) {
+    const rm = g.room;
+    if (S.rooms.has(rm.id)) { rm.dirt = Math.max(0, rm.dirt - 70); rm.cleaner = 0; }
+  }
+  a.st = 'free';
+  decide(a);
+}
+
+/* — décisions — */
+
+function decide(a) {
+  if (a.dead) return;
+  const room = S.rooms.get(a.home);
+  if (a.kind !== 'cust' && (!room || !room.tenant)) { return goExit(a, S.T + 60); }
+  const m = S.T % DAY, ds = dayOf(S.T) * DAY;
+  const kind = a.kind;
+
+  if (kind === 'cust') {
+    if (a.visitsLeft > 0 && a.goal && a.goal.then === 'visit') {
+      a.visitsLeft--;
+      const r = pickOpen('any', m);
+      if (r) return goTo(a, r, 'visit', { dur: visitDur(r) });
+    }
+    return goExit(a, S.T + 10);
+  }
+
+  if (kind === 'jan') {
+    const shift = m >= 420 && m < 1140;
+    if (shift) {
+      let tgt = null, bd = 29;
+      for (const r of S.rooms.values()) {
+        if (!r.tenant || !r.reach || r.cleaner || !TYPES[r.type].lease || r.type === 'parking') continue;
+        if (r.dirt > bd) { bd = r.dirt; tgt = r; }
+      }
+      if (tgt) { tgt.cleaner = a.id; return goTo(a, tgt, 'visit', { dur: 8, clean: true }); }
+    }
+    if (a.cur !== a.home) return goTo(a, room, 'stay');
+    a.st = 'in';
+    a.wakeAt = shift ? S.T + 8 : (m < 420 ? ds + 420 : ds + DAY + 420);
+    return;
+  }
+
+  const p = planOf(a);
+
+  if (kind === 'res') {
+    if (a.arrived) {
+      a.arrived = false;
+      if (p.shopAfter && !p.shopDone) {
+        p.shopDone = true;
+        const r = pickOpen('any', m);
+        if (r) return goTo(a, r, 'visit', { dur: visitDur(r) });
+      }
+      return goTo(a, room, 'stay');
+    }
+    if (a.cur !== a.home) return goTo(a, room, 'stay');
+    if (p.out && !p.left) {
+      if (S.T < ds + p.leave) { a.st = 'in'; a.wakeAt = ds + p.leave; return; }
+      p.left = true;
+      return goExit(a, Math.max(S.T + 25, ds + p.ret + rr(-15, 15)));
+    }
+    if (!p.out && p.local && !p.localDone) {
+      if (S.T < ds + p.local) { a.st = 'in'; a.wakeAt = ds + p.local; return; }
+      p.localDone = true;
+      const r = pickOpen('any', m);
+      if (r) return goTo(a, r, 'visit', { dur: visitDur(r) });
+    }
+    if (p.ev && !p.evDone) {
+      if (S.T < ds + p.ev) { a.st = 'in'; a.wakeAt = ds + p.ev; return; }
+      p.evDone = true;
+      const r = pickOpen('leisure', m);
+      if (r) return goTo(a, r, 'visit', { dur: visitDur(r) });
+    }
+    a.st = 'in'; a.wakeAt = ds + DAY + 5;
+    return;
+  }
+
+  // employés
+  if (a.arrived) { a.arrived = false; return goTo(a, room, 'stay'); }
+  if (shouldBeAtWork(a)) {
+    if (a.cur !== a.home) return goTo(a, room, 'stay');
+    if (a.wk === 'office' && !p.lunchDone) {
+      const lt = ds + a.s.lun;
+      if (S.T < lt) { a.st = 'in'; a.wakeAt = lt; return; }
+      p.lunchDone = true;
+      const r = pickOpen('lunch', m);
+      if (r && rnd() < 0.5) return goTo(a, r, 'visit', { dur: rr(30, 45) });
+      return goExit(a, S.T + rr(40, 65));
+    }
+    a.st = 'in'; a.wakeAt = ds + a.s.lea; return;
+  }
+  // fin de journée
+  if (S.T < ds + a.s.arr && (a.wk !== 'office' || wdayOf(S.T) < 5)) { a.st = 'in'; a.wakeAt = ds + a.s.arr; return; }
+  if (!p.shopDone && rnd() < 0.2 && a.wk !== 'shop') {
+    p.shopDone = true;
+    const r = pickOpen('shop', m);
+    if (r) return goTo(a, r, 'visit', { dur: rr(6, 14) });
+  }
+  return goExit(a, nextStart(a, S.T));
+}
+
+function wake(a) {
+  if (a.st === 'away') {
+    const halls = hallsOf();
+    if (!halls.length) { a.wakeAt = S.T + 20; return; }
+    const h = halls[Math.floor(rnd() * halls.length)];
+    a.f = 0; a.fy = 0; a.x = h.c + h.w / 2 + rr(-0.5, 0.5); a.cur = 0; a.arrived = true; a.st = 'free'; a.tripStart = S.simT;
+    return decide(a);
+  }
+  if (a.st === 'visit') return endVisit(a);
+  a.st = 'free';
+  decide(a);
+}
+
+function spawnCustomer() {
+  const m = S.T % DAY;
+  const r = pickOpen('any', m);
+  if (!r) return;
+  const halls = hallsOf();
+  if (!halls.length) return;
+  const a = mkAgent('cust', null);
+  const h = halls[Math.floor(rnd() * halls.length)];
+  a.f = 0; a.fy = 0; a.x = h.c + h.w / 2 + rr(-0.5, 0.5); a.st = 'free'; a.visitsLeft = rnd() < 0.35 ? 1 : 0;
+  a.goal = { then: 'visit' };
+  S.agents.push(a);
+  goTo(a, r, 'visit', { dur: visitDur(r) });
+}
+
+const HOUR_PROFILE = [0, 0, 0, 0, 0, 0, 0, 0, 0.2, 0.5, 0.8, 1, 1.4, 1.3, 0.9, 0.8, 0.9, 1.2, 1.3, 0.9, 0.6, 0.4, 0.15, 0];
+const PROFILES = {
+  day: HOUR_PROFILE,
+  morn: [0, 0, 0, 0, 0, 0, 0.3, 1, 1.4, 1, 0.6, 0.5, 0.8, 0.7, 0.5, 0.5, 0.6, 0.7, 0.6, 0.3, 0.1, 0, 0, 0],
+  eve: [0.1, 0, 0, 0, 0, 0, 0.4, 0.7, 0.5, 0.3, 0.3, 0.4, 0.6, 0.5, 0.6, 0.7, 0.9, 1.3, 1.5, 1.5, 1.4, 1.2, 0.8, 0.3],
+  night: [1, 0.6, 0.3, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.4, 0.7, 1.2, 1.6, 1.4]
+};
+// objectif de visites par jour (satisfaction pleine) : 85 % de l'affluence attendue, d'après horaires, profil et jours d'ouverture
+for (const k of ORDER) {
+  const T = TYPES[k];
+  if (!T.hours || T.tgt) continue;
+  let sum = 0;
+  for (let m = T.hours[0]; m < T.hours[1]; m += 30) sum += PROFILES[T.prof || 'day'][Math.floor((m % DAY) / 60)] * 0.5;
+  T.tgt = Math.max(3, Math.round(0.85 * T.flow * sum * (T.days === 'week' ? 5 / 7 : 1)));
+}
+
+function updateAgent(a, dt) {
+  switch (a.st) {
+    case 'walk': {
+      const dx = a.tx - a.x, v = WALK * a.sp * dt;
+      if (Math.abs(dx) <= v) { a.x = a.tx; a.ri++; beginStep(a); }
+      else { a.x += sgn(dx) * v; a.dir = sgn(dx); }
+      break;
+    }
+    case 'wait': {
+      const sh = S.shafts.get(a.shaft);
+      if (!sh) { a.st = 'free'; resume(a); break; }
+      const q = sh.q[a.wf] || [];
+      const i = Math.max(0, q.indexOf(a));
+      const slot = sh.col + 0.5 + (i % 2 ? 1 : -1) * (0.55 + 0.32 * Math.floor(i / 2));
+      a.x += (slot - a.x) * Math.min(1, dt * 5);
+      break;
+    }
+    case 'ride': if (a.car) { a.fy = a.car.y; a.f = Math.round(a.car.y); } break;
+    case 'stair': {
+      a.sp += dt / STAIR_T;
+      if (a.sp >= 1) { a.f = a.sf1; a.fy = a.sf1; a.x = a.sx1; a.ri++; beginStep(a); }
+      else { a.x = a.sx0 + (a.sx1 - a.sx0) * a.sp; a.fy = a.sf0 + (a.sf1 - a.sf0) * a.sp; a.dir = sgn(a.sx1 - a.sx0); }
+      break;
+    }
+    case 'in': case 'visit': case 'away': case 'free':
+      if (S.T >= a.wakeAt) wake(a);
+      break;
+  }
+}
+
+/* ───────────────────────── boucle de simulation ───────────────────────── */
+
+function step(dt) {
+  S.simT += dt; S.T += dt * MPS;
+  while (Math.floor(S.T / 60) > S.lastHour) {
+    S.lastHour++;
+    hourly();
+    if (Math.floor(S.lastHour / 24) > S.lastDay) { S.lastDay++; endOfDay(); }
+  }
+  // clientels externes
+  let rate = 0;
+  const mnow = S.T % DAY, hnow = Math.floor(mnow / 60);
+  for (const r of S.rooms.values()) if (TYPES[r.type].hours && isOpen(r, mnow)) rate += flowOf(r, hnow);
+  rate *= (S.attr / 60) * (wdayOf(S.T) >= 5 ? 1.25 : 1) * (S.fx.metro ? 1.3 : 1) * (S.boostUntil > S.T ? 1.8 : 1);
+  S.spawnAcc += rate * (dt * MPS / 60);
+  while (S.spawnAcc >= 1) { S.spawnAcc -= 1; if (S.agents.length < 700) spawnCustomer(); }
+  for (const sh of S.shafts.values()) for (const car of sh.cars) stepCar(sh, car, dt);
+  const ag = S.agents;
+  for (let i = 0; i < ag.length; i++) if (!ag[i].dead) updateAgent(ag[i], dt);
+  let dead = false;
+  for (let i = 0; i < ag.length; i++) if (ag[i].dead) { dead = true; break; }
+  if (dead) S.agents = ag.filter((a) => !a.dead);
+}
+
+function tick(simSeconds) {
+  if (S.over) return;
+  acc += simSeconds;
+  let n = 0;
+  while (acc >= STEP && n < 800) { step(STEP); acc -= STEP; n++; }
+  if (acc > 2) acc = 0;
+}
+
+/* ───────────────────────── économie ───────────────────────── */
+
+const AMEN = { grocery: 3, health: 2, fitness: 2, leisure: 2, kids: 2, sec: 2, beauty: 1, cafe: 1 };
+function amenity(T) {
+  const sv = S.svc;
+  if (T.cat === 'home') {
+    let b = 0;
+    for (const k in AMEN) if (sv[k]) b += AMEN[k];
+    return Math.min(12, b) * (T.amen || 1);
+  }
+  if (T.wk === 'office') return Math.min(6, (sv.food ? 2 : 0) + (sv.fitness ? 2 : 0) + (sv.kids ? 1 : 0) + (sv.sec ? 1 : 0));
+  return 0;
+}
+
+function satTarget(r) {
+  const T = TYPES[r.type], bd = { stress: 0, noise: 0, dirt: 0, view: 0, svc: 0, biz: 0, bonus: 0, reno: 0, pol: 0 };
+  if (r.type === 'parking') { bd.dirt = 0; r.bd = bd; return 74; }
+  bd.stress = Math.min(50, Math.max(0, r.trip - 14) * 1.5);
+  bd.dirt = Math.min(30, Math.max(0, r.dirt - 30) * 0.45);
+  bd.reno = 4 * (r.lvl || 0);
+  bd.pol = r.pol === -1 ? 6 : r.pol === 1 ? -10 : 0;
+  let t;
+  if (T.cap) {
+    bd.biz = clamp(30 + 55 * r.visAvg / (T.tgt || 10), 0, 100);
+    t = bd.biz - bd.dirt - bd.stress * 0.5;
+  } else {
+    const sv = S.svc, home = T.cat === 'home', office = T.wk === 'office';
+    bd.noise = Math.min(30, r.noise * (T.nk != null ? T.nk : 1));
+    bd.view = (r.f > 0 ? Math.min(10, r.f * 0.7) * (T.vk || 1) : r.f < 0 ? -8 : 0) + 5 * (r.green || 0);
+    if (home) bd.svc = (sv.shop ? 0 : 7) + (sv.food || S.rank < 3 ? 0 : 4);
+    else if (office) bd.svc = sv.food || S.rank < 3 ? 0 : 7;
+    bd.bonus = amenity(T);
+    if (T.sk) bd.stress *= T.sk;
+    t = (T.base || 86) + bd.view - bd.stress - bd.noise - bd.dirt - bd.svc + bd.bonus;
+  }
+  t += bd.reno + bd.pol;
+  r.bd = bd;
+  return clamp(t, 0, 100);
+}
+
+function rentNow(r) {
+  const T = TYPES[r.type];
+  if (!T.rent) return 0;
+  const prem = Math.min(1.6, 1 + 0.025 * Math.max(0, r.f));
+  let k = 1 + 0.12 * (r.lvl || 0);
+  k *= r.pol === 1 ? 1.25 : r.pol === -1 ? 0.82 : 1;
+  if (r.type === 'pent' && S.fx && S.fx.heli) k *= 1.1;
+  return Math.round(T.rent * prem * k * (0.55 + 0.65 * r.sat / 100));
+}
+
+function rentOut(r) {
+  r.tenant = true; r.sat = 65; r.low = 0; r.trip = 10;
+  spawnTenantAgents(r, false);
+  S.stats.moves++;
+  emit({ k: 'move', f: r.f, x: r.c + r.w / 2 });
+}
+
+function moveOut(r) {
+  r.tenant = false; r.sat = 65; r.low = 0;
+  removeAgentsOf(r);
+  S.stats.outs++;
+  toast('Un locataire est parti (' + TYPES[r.type].name + ', ' + label(r.f) + ').', 'warn');
+}
+
+function computeAttr() {
+  let n = 0, sum = 0, halls = 0, parking = 0;
+  for (const r of S.rooms.values()) {
+    if (r.type === 'hall') halls++;
+    if (!r.tenant || !TYPES[r.type].lease) continue;
+    n++; sum += r.sat;
+    if (r.type === 'parking') parking++;
+  }
+  S.avgSat = n ? sum / n : 70;
+  const fx = S.fx || {};
+  return clamp(35 + S.avgSat * 0.35 + S.rank * 3 + Math.min(8, halls * 2) + Math.min(5, parking * 2) + (fx.metro ? 6 : 0) + (fx.heli ? 5 : 0) + (S.pressUntil > S.T ? 8 : 0), 10, 100);
+}
+
+function computeSvc() {
+  const svc = {}, fx = {};
+  let venues = 0;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type];
+    if (!r.tenant || !(r.reach || T.fx === 'solar')) continue;
+    if (T.svc) for (const k of T.svc) svc[k] = (svc[k] || 0) + 1;
+    if (T.fx) fx[T.fx] = (fx[T.fx] || 0) + 1;
+    if (T.cap) venues++;
+  }
+  S.svc = svc; S.fx = fx; S.venues = venues;
+}
+const interestRate = () => (S.fx && S.fx.bank ? 0.003 : 0.004);
+
+function popCount() {
+  let p = 0;
+  for (const a of S.agents) if (!a.dead && (a.kind === 'res' || a.kind === 'work')) p++;
+  return p;
+}
+
+function hourly() {
+  const cnt = new Map();
+  for (const a of S.agents) if ((a.st === 'in' || a.st === 'visit') && a.cur) cnt.set(a.cur, (cnt.get(a.cur) || 0) + 1);
+  computeSvc();
+  S.pop = popCount();
+  const demandShops = Math.min(1, (S.pop + 6) / (12 * (S.venues + 1)));
+  const dirtK = S.fx.trash ? 0.8 : 1;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type];
+    if (r.tenant && (T.lease || r.type === 'janitor')) {
+      r.dirt = Math.min(100, r.dirt + (0.15 + 0.3 * (cnt.get(r.id) || 0)) * dirtK);
+      if (T.lease) r.sat += (satTarget(r) - r.sat) * 0.18;
+    } else if (T.lease && r.reach) {
+      let p = 0.02 + 0.08 * (S.attr / 100);
+      if (T.cap) p *= demandShops;
+      if (T.wk === 'office') p *= 0.6 + 0.4 * S.avgSat / 100;
+      if (r.type === 'pent') p *= 0.6 * (S.fx.heli ? 1.6 : 1);
+      if (rnd() < p) rentOut(r);
+    }
+  }
+  S.attr = computeAttr();
+  if (S.lastHour % 24 === 8) rollEvent();
+  checkGoals();
+  updateAdvice();
+}
+
+function costsPerDay() {
+  let c = 0;
+  for (const r of S.rooms.values()) c += TYPES[r.type].upkeep || 0;
+  for (const sh of S.shafts.values()) c += sh.ncars * CAR_UPKEEP * (1 + 0.4 * (sh.lvl - 1)) * (S.fx.tech ? 0.8 : 1);
+  return Math.round(c + S.debt * interestRate());
+}
+
+function endOfDay() {
+  let rent = 0, other = 0;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type];
+    if (T.income && r.tenant) other += T.income;
+    if (!T.lease || !r.tenant) continue;
+    rent += rentNow(r);
+    if (T.cap) { r.visAvg += (r.visToday - r.visAvg) * 0.35; }
+    r.visY = r.visToday; r.visToday = 0; r.lost = 0;
+    if (r.sat < 28) r.low++; else r.low = 0;
+    if (r.low >= 2) moveOut(r);
+  }
+  const costs = costsPerDay();
+  S.cash += rent + other - costs;
+  const sales = S.today.sales;
+  S.pop = popCount();
+  S.hist.push({ day: dayOf(S.T), rent, sales, other, costs, net: rent + sales + other - costs, pop: S.pop, sat: Math.round(S.avgSat), cash: S.cash });
+  if (S.hist.length > 30) S.hist.shift();
+  S.last = S.hist[S.hist.length - 1];
+  S.today = { sales: 0 };
+  // rang
+  while (S.rank < 5 && S.pop >= RANK_POP[S.rank + 1] && S.avgSat >= RANK_SAT[S.rank + 1]) {
+    S.rank++;
+    const bonus = 5000 * S.rank;
+    S.cash += bonus;
+    emit({ k: 'rank', rank: S.rank, bonus });
+    emit({ k: 'sound', name: 'rank' });
+  }
+  if (S.cash < -30000) { S.debtDays++; if (S.debtDays >= 3) { S.over = true; emit({ k: 'over' }); } } else S.debtDays = 0;
+  emit({ k: 'day', rep: S.last });
+  emit({ k: 'save' });
+}
+
+/* événements du matin */
+function logEvent(text, lvl) {
+  S.log.unshift({ t: S.T, text, lvl: lvl || 'info' });
+  if (S.log.length > 12) S.log.pop();
+  toast(text, lvl);
+}
+function pickWeighted(list) {
+  let tot = 0;
+  for (const e of list) tot += e[1];
+  let x = rnd() * tot;
+  for (const e of list) { x -= e[1]; if (x <= 0) return e[0]; }
+  return list.length ? list[list.length - 1][0] : null;
+}
+function rollEvent() {
+  if (S.over || dayOf(S.T) < 2 || rnd() > 0.3) return;
+  const leased = [];
+  for (const r of S.rooms.values()) if (TYPES[r.type].lease && r.tenant) leased.push(r);
+  const opts = [];
+  if (S.shafts.size) opts.push(['panne', 3]);
+  if (leased.length) opts.push(['fuite', 3], ['vol', 2], ['inspection', 2]);
+  if (S.pop >= 10) opts.push(['fete', 2], ['presse', 2]);
+  if (maxBuilt() >= 8) opts.push(['tournage', 1]);
+  runEvent(pickWeighted(opts));
+}
+function runEvent(ev) {
+  const leased = [];
+  for (const r of S.rooms.values()) if (TYPES[r.type].lease && r.tenant) leased.push(r);
+  if (ev === 'panne' && S.shafts.size) {
+    const list = [...S.shafts.values()], sh = list[Math.floor(rnd() * list.length)];
+    const hrs = S.fx.tech ? 1.5 : 4, fee = S.fx.tech ? 150 : 350;
+    sh.slowUntil = S.T + hrs * 60; S.cash -= fee;
+    logEvent('Panne d’ascenseur : cabines au ralenti pendant ' + (S.fx.tech ? '1 h 30' : '4 h') + ' (réparation ' + fee + ' €).' + (S.fx.tech ? '' : ' Un local technique limite les pannes.'), 'warn');
+  } else if (ev === 'fuite' && leased.length) {
+    const r = leased[Math.floor(rnd() * leased.length)];
+    r.dirt = Math.min(100, r.dirt + 35); r.sat = Math.max(0, r.sat - 6); S.cash -= 250;
+    logEvent('Fuite d’eau : ' + TYPES[r.type].name + ', ' + label(r.f) + ' (réparation 250 €).', 'warn');
+  } else if (ev === 'vol') {
+    if (S.fx.sec) logEvent('Le poste de sécurité a déjoué un cambriolage.', 'good');
+    else { const loss = Math.round((300 + rnd() * 900) / 10) * 10; S.cash -= loss; logEvent('Cambriolage : ' + loss + ' € volés. Un poste de sécurité (★3) les dissuade.', 'warn'); }
+  } else if (ev === 'inspection' && leased.length) {
+    let sum = 0;
+    for (const r of leased) sum += r.dirt;
+    if (sum / leased.length > 40) { S.cash -= 700; logEvent('Inspection : tour jugée sale, amende de 700 €.', 'warn'); }
+    else { S.cash += 400; logEvent('Inspection réussie : subvention de 400 €.', 'good'); }
+  } else if (ev === 'fete') {
+    S.boostUntil = S.T + 12 * 60;
+    logEvent('Fête de quartier : forte affluence dans les commerces jusqu’au soir.', 'good');
+  } else if (ev === 'presse') {
+    S.pressUntil = S.T + 3 * DAY;
+    logEvent('Article de presse élogieux : la tour attire plus de monde pendant 3 jours.', 'good');
+  } else if (ev === 'tournage') {
+    const gain = 1200 + maxBuilt() * 60; S.cash += gain;
+    logEvent('Un film se tourne dans la tour : +' + gain + ' €.', 'good');
+  }
+}
+
+/* objectifs */
+const GOALS = [
+  { t: 'Construire 2 appartements', rw: 1500, ok: () => count('apt') >= 2 },
+  { t: 'Loger 6 personnes', rw: 1500, ok: () => S.pop >= 6 },
+  { t: 'Construire un ascenseur (3 étages)', rw: 2000, ok: () => [...S.shafts.values()].some((s) => s.f1 - s.f0 >= 2) },
+  { t: 'Atteindre le rang ★2 (20 habitants)', rw: 3000, ok: () => S.rank >= 2 },
+  { t: 'Ouvrir une boutique et une conciergerie', rw: 2500, ok: () => count('shop') >= 1 && count('janitor') >= 1 },
+  { t: 'Monter jusqu’à R+8', rw: 3500, ok: () => maxBuilt() >= 8 },
+  { t: 'Atteindre le rang ★3 (60 habitants)', rw: 5000, ok: () => S.rank >= 3 },
+  { t: 'Ouvrir un restaurant', rw: 4000, ok: () => count('restoT') >= 1 },
+  { t: 'Installer 3 cabines dans un ascenseur', rw: 4000, ok: () => [...S.shafts.values()].some((s) => s.ncars >= 3) },
+  { t: 'Satisfaction moyenne ≥ 75 avec 80 habitants', rw: 6000, ok: () => S.pop >= 80 && S.avgSat >= 75 },
+  { t: 'Atteindre le rang ★4 (140 habitants)', rw: 9000, ok: () => S.rank >= 4 },
+  { t: 'Monter jusqu’à R+20', rw: 9000, ok: () => maxBuilt() >= 20 },
+  { t: 'Louer un penthouse', rw: 12000, ok: () => count('pentT') >= 1 },
+  { t: 'Atteindre le rang ★5 (260 habitants)', rw: 20000, ok: () => S.rank >= 5 },
+  { t: 'Gagner 6 000 € par jour', rw: 25000, ok: () => S.last && S.last.net >= 6000 },
+  { t: 'Ouvrir un café et une boulangerie', rw: 3500, ok: () => cnt('cafe', 1) >= 1 && cnt('bakery', 1) >= 1 },
+  { t: 'Rénover 3 pièces', rw: 4000, ok: () => renovated() >= 3 },
+  { t: 'Ouvrir une supérette et une pharmacie', rw: 6000, ok: () => cnt('grocery', 1) >= 1 && cnt('pharmacy', 1) >= 1 },
+  { t: 'Installer un poste de sécurité et un local technique', rw: 7000, ok: () => cnt('security') >= 1 && cnt('tech') >= 1 },
+  { t: 'Ouvrir une salle de sport', rw: 6000, ok: () => cnt('gym', 1) >= 1 },
+  { t: 'Louer un loft', rw: 7000, ok: () => cnt('loft', 1) >= 1 },
+  { t: 'Gagner 15 000 € par jour', rw: 12000, ok: () => S.last && S.last.net >= 15000 },
+  { t: 'Ouvrir une banque', rw: 12000, ok: () => cnt('bank', 1) >= 1 },
+  { t: 'Ouvrir un cinéma', rw: 15000, ok: () => cnt('cinema', 1) >= 1 },
+  { t: 'Poser des panneaux solaires', rw: 10000, ok: () => cnt('solar') >= 1 },
+  { t: 'Satisfaction moyenne ≥ 80 avec 200 habitants', rw: 20000, ok: () => S.pop >= 200 && S.avgSat >= 80 },
+  { t: 'Ouvrir un club en sous-sol', rw: 15000, ok: () => cnt('club', 1) >= 1 },
+  { t: 'Réunir 20 types de pièces différents', rw: 25000, ok: () => kindsBuilt() >= 20 },
+  { t: 'Atteindre le sommet (R+45)', rw: 40000, ok: () => maxBuilt() >= 45 },
+  { t: 'Ouvrir l’observatoire', rw: 40000, ok: () => cnt('observatory', 1) >= 1 },
+  { t: 'Poser l’héliport', rw: 50000, ok: () => cnt('heli') >= 1 },
+  { t: 'Gagner 40 000 € par jour', rw: 60000, ok: () => S.last && S.last.net >= 40000 },
+  { t: 'Réunir 28 types de pièces différents', rw: 80000, ok: () => kindsBuilt() >= 28 }
+];
+function cnt(type, tenantOnly) {
+  let n = 0;
+  for (const r of S.rooms.values()) if (r.type === type && (!tenantOnly || r.tenant)) n++;
+  return n;
+}
+function kindsBuilt() { const k = new Set(); for (const r of S.rooms.values()) k.add(r.type); return k.size; }
+function renovated() { let n = 0; for (const r of S.rooms.values()) if ((r.lvl || 0) >= 1) n++; return n; }
+function count(t) {
+  let n = 0;
+  for (const r of S.rooms.values()) {
+    if (t === 'restoT') { if (r.type === 'resto' && r.tenant) n++; }
+    else if (t === 'pentT') { if (r.type === 'pent' && r.tenant) n++; }
+    else if (r.type === t) n++;
+  }
+  return n;
+}
+function maxBuilt() { let m = 0; for (const r of S.rooms.values()) m = Math.max(m, r.f + r.h - 1); return m; }
+function checkGoals() {
+  while (S.goalIdx < GOALS.length && GOALS[S.goalIdx].ok()) {
+    const g = GOALS[S.goalIdx];
+    S.cash += g.rw; S.goalIdx++;
+    emit({ k: 'goal', text: g.t, reward: g.rw });
+    emit({ k: 'sound', name: 'rank' });
+  }
+}
+
+function updateAdvice() {
+  const adv = [];
+  let unreach = 0, dirtySum = 0, tenants = 0, vacant = 0;
+  for (const r of S.rooms.values()) {
+    const T = TYPES[r.type];
+    if ((T.lease || T.service) && !r.reach && T.fx !== 'solar') unreach++;
+    if (T.lease && r.tenant) { tenants++; dirtySum += r.dirt; }
+    if (T.lease && !r.tenant && r.reach) vacant++;
+  }
+  let maxF = 0; for (const r of S.rooms.values()) maxF = Math.max(maxF, r.f);
+  if (unreach) adv.push({ id: 'reach', lvl: 'warn', text: unreach + ' pièce' + (unreach > 1 ? 's' : '') + ' sans accès : reliez-les au hall par un couloir continu, un escalier ou un ascenseur.' });
+  if (maxF >= 3 && !S.shafts.size) adv.push({ id: 'noelev', lvl: 'warn', text: 'Au-delà du 2e étage, les escaliers ne suffisent plus. Construisez un ascenseur.' });
+  for (const sh of S.shafts.values()) {
+    if (sh.wavg > 16 && sh.ncars < MAX_CARS) { adv.push({ id: 'wait' + sh.id, lvl: 'bad', text: 'Longue attente à l’ascenseur (' + Math.round(sh.wavg) + ' s en moyenne). Ajoutez une cabine ou un second ascenseur.', shaft: sh.id }); break; }
+  }
+  if (tenants && dirtySum / tenants > 42 && !count('janitor')) adv.push({ id: 'dirt', lvl: 'warn', text: 'La saleté s’accumule. Une conciergerie (rang ★2) nettoie les pièces.' });
+  if (S.rank >= 3 && S.pop >= 60 && !S.fx.sec) adv.push({ id: 'sec', lvl: 'info', text: 'Un poste de sécurité (★3) déjoue les cambriolages et rassure les habitants.' });
+  if (S.rank >= 3 && S.pop >= 80 && S.shafts.size && !S.fx.tech) adv.push({ id: 'tech', lvl: 'info', text: 'Un local technique (★3) réduit les pannes d’ascenseur et leur coût.' });
+  if (S.cash < 2500 && S.cash >= 0) adv.push({ id: 'cash', lvl: 'warn', text: 'Trésorerie basse. Attendez les loyers de minuit ou empruntez à la banque.' });
+  if (S.cash < 0) adv.push({ id: 'neg', lvl: 'bad', text: 'Compte à découvert : en dessous de −30 000 € pendant 3 jours, c’est la faillite.' });
+  if (vacant >= 4 && S.avgSat < 60) adv.push({ id: 'vac', lvl: 'info', text: 'Plusieurs pièces restent vides : la tour manque d’attrait. Améliorez les ascenseurs et la propreté.' });
+  if (S.rank < 5 && S.pop >= RANK_POP[S.rank + 1] && S.avgSat < RANK_SAT[S.rank + 1]) adv.push({ id: 'rank', lvl: 'info', text: 'Il manque de la satisfaction (' + RANK_SAT[S.rank + 1] + ' %) pour le prochain rang.' });
+  S.advice = adv;
+}
+
+/* ───────────────────────── sauvegarde ───────────────────────── */
+
+function serialize() {
+  const rooms = [];
+  for (const r of S.rooms.values()) {
+    rooms.push({ id: r.id, type: r.type, f: r.f, c: r.c, tenant: r.tenant, sat: r.sat, dirt: r.dirt, visAvg: r.visAvg, paid: r.paid, shaft: r.shaft, lvl: r.lvl || 0, pol: r.pol || 0 });
+  }
+  const shafts = [];
+  for (const sh of S.shafts.values()) shafts.push({ id: sh.id, ncars: sh.ncars, lvl: sh.lvl });
+  return {
+    v: 1, T: S.T, simT: S.simT, cash: S.cash, debt: S.debt, owned: S.owned, landBuys: S.landBuys, rank: S.rank,
+    nextId: S.nextId, rooms, shafts, hist: S.hist, goalIdx: S.goalIdx, attr: S.attr, lastHour: S.lastHour, lastDay: S.lastDay,
+    debtDays: S.debtDays
+  };
+}
+
+function validate(d) {
+  const fail = (m) => ({ ok: false, reason: m });
+  const num = (v, lo, hi) => typeof v === 'number' && isFinite(v) && v >= lo && v <= hi;
+  if (!d || typeof d !== 'object' || d.v !== 1) return fail('Version de sauvegarde inconnue.');
+  if (!num(d.T, 0, 1e7) || !num(d.cash, -1e7, 1e9) || !num(d.debt == null ? 0 : d.debt, 0, 1e7)) return fail('Valeurs de la partie invalides.');
+  const o = d.owned;
+  if (!o || !Number.isInteger(o.l) || !Number.isInteger(o.r) || o.l < 0 || o.r > COLS - 1 || o.l > o.r) return fail('Terrain invalide.');
+  if (!Number.isInteger(d.rank) || d.rank < 1 || d.rank > 5) return fail('Rang invalide.');
+  if (!Array.isArray(d.rooms) || d.rooms.length < 1 || d.rooms.length > 3000) return fail('Liste des pièces invalide.');
+  const seen = new Set(), cells = new Set();
+  let hall = false;
+  for (const r of d.rooms) {
+    if (!r || typeof r !== 'object') return fail('Pièce invalide.');
+    const TT = typeof r.type === 'string' && Object.prototype.hasOwnProperty.call(TYPES, r.type) ? TYPES[r.type] : null;
+    if (!TT) return fail('Type de pièce inconnu.');
+    if (!Number.isInteger(r.id) || r.id < 1 || seen.has(r.id)) return fail('Identifiants de pièces invalides.');
+    seen.add(r.id);
+    if (!Number.isInteger(r.f) || !Number.isInteger(r.c)) return fail('Position invalide.');
+    if (r.f < FMIN || r.f + TT.h - 1 > FMAX || r.c < o.l || r.c + TT.w - 1 > o.r) return fail('Une pièce sort du terrain.');
+    for (let rowf = r.f; rowf < r.f + TT.h; rowf++) for (let k = r.c; k < r.c + TT.w; k++) {
+      const key = rowf * 100 + k;
+      if (cells.has(key)) return fail('Deux pièces se chevauchent.');
+      cells.add(key);
+    }
+    if (r.lvl != null && (!Number.isInteger(r.lvl) || r.lvl < 0 || r.lvl > 2)) return fail('Niveau de rénovation invalide.');
+    if (r.pol != null && (!Number.isInteger(r.pol) || r.pol < -1 || r.pol > 1)) return fail('Réglage de loyer invalide.');
+    if (r.type === 'hall') { if (r.f !== 0) return fail('Hall hors du rez-de-chaussée.'); hall = true; }
+  }
+  if (!hall) return fail('Aucun hall dans cette partie.');
+  if (!Array.isArray(d.shafts) || d.shafts.length > 400) return fail('Ascenseurs invalides.');
+  for (const sh of d.shafts) if (!sh || !Number.isInteger(sh.id) || !Number.isInteger(sh.ncars) || sh.ncars < 1 || sh.ncars > MAX_CARS || !Number.isInteger(sh.lvl) || sh.lvl < 1 || sh.lvl > 3) return fail('Ascenseur invalide.');
+  if (d.hist != null && (!Array.isArray(d.hist) || d.hist.length > 60)) return fail('Historique invalide.');
+  return { ok: true, info: { rooms: d.rooms.length, day: Math.floor(d.T / DAY) + 1, cash: Math.round(d.cash), rank: d.rank } };
+}
+
+function deserialize(d) {
+  if (!validate(d).ok) return null;
+  newState();
+  for (const r of [...S.rooms.values()]) { for (let k = r.c; k < r.c + r.w; k++) S.grid[r.f - FMIN][k] = 0; }
+  S.rooms.clear();
+  const n = (v, lo, hi, dflt) => (typeof v === 'number' && isFinite(v) ? clamp(v, lo, hi) : dflt);
+  S.T = d.T; S.simT = n(d.simT, 0, 1e9, 0); S.cash = d.cash; S.debt = n(d.debt, 0, 1e7, 0);
+  S.owned = { l: d.owned.l, r: d.owned.r }; S.landBuys = Math.floor(n(d.landBuys, 0, 50, 0)); S.rank = d.rank;
+  S.hist = (d.hist || []).map((h) => ({
+    day: Math.floor(n(h && h.day, 0, 1e5, 0)), rent: n(h && h.rent, -1e9, 1e9, 0), sales: n(h && h.sales, -1e9, 1e9, 0), other: n(h && h.other, -1e9, 1e9, 0), costs: n(h && h.costs, -1e9, 1e9, 0),
+    net: n(h && h.net, -1e9, 1e9, 0), pop: n(h && h.pop, 0, 1e5, 0), sat: n(h && h.sat, 0, 100, 0), cash: n(h && h.cash, -1e9, 1e9, 0)
+  }));
+  S.goalIdx = Math.floor(n(d.goalIdx, 0, GOALS.length, 0)); S.attr = n(d.attr, 0, 100, 55);
+  S.lastHour = Math.floor(S.T / 60); S.lastDay = Math.floor(S.lastHour / 24); S.debtDays = Math.floor(n(d.debtDays, 0, 99, 0));
+  S.last = S.hist[S.hist.length - 1];
+  S.shafts = new Map();
+  let maxId = 0;
+  for (const sh of d.shafts) { S.shafts.set(sh.id, { id: sh.id, ncars: sh.ncars, lvl: sh.lvl, cars: [], q: {}, res: {}, wavg: 6 }); maxId = Math.max(maxId, sh.id); }
+  for (const r of d.rooms) {
+    const T = TYPES[r.type];
+    const room = {
+      id: r.id, type: r.type, f: r.f, c: r.c, w: T.w, h: T.h, tenant: (r.type === 'hall' || T.service) ? true : !!r.tenant,
+      sat: n(r.sat, 0, 100, 65), dirt: n(r.dirt, 0, 100, 0), visAvg: n(r.visAvg, 0, 60, 5), paid: n(r.paid, 0, 1e6, T.cost), shaft: Number.isInteger(r.shaft) ? r.shaft : 0,
+      vis: 0, visToday: 0, visY: 0, lost: 0, low: 0, trip: 10, reach: false, cleaner: 0, noise: 0, green: 0, bd: {},
+      lvl: Number.isInteger(r.lvl) ? clamp(r.lvl, 0, 2) : 0, pol: Number.isInteger(r.pol) ? clamp(r.pol, -1, 1) : 0
+    };
+    S.rooms.set(room.id, room); maxId = Math.max(maxId, room.id);
+    for (let rowf = room.f; rowf < room.f + room.h; rowf++) for (let k = room.c; k < room.c + room.w; k++) S.grid[rowf - FMIN][k] = room.id;
+  }
+  S.nextId = Math.max(maxId + 1, Math.floor(n(d.nextId, 1, 1e9, 1)));
+  rebuild();
+  for (const r of S.rooms.values()) if (r.tenant && r.type !== 'hall') spawnTenantAgents(r, true, true);
+  S.pop = popCount();
+  hourlyLight();
+  return S;
+}
+function hourlyLight() { computeSvc(); S.attr = computeAttr(); updateAdvice(); }
+
+function newGame() { return newState(); }
+
+root.Engine = {
+  get S() { return S; },
+  COLS, FMIN, FMAX, NF, DAY, MPS, CAP, MAX_CARS, CAR_COST, RANK_FLOORS, RANK_BASE, RANK_POP, RANK_SAT,
+  TYPES, ORDER, CATS, GOALS, newGame, deserialize, serialize, validate, tick, step,
+  canPlace, place, costOf, canDemolish, demolish, buyLand, landCost, addCar, removeCar, upgradeShaft, upgradeCost, borrow, repay,
+  roomAt, segAt, label, dateInfo, rentNow, runEvent, upgradeRoom, upgradeRoomCost, setPolicy, statsNow, interestRate, isOpen, popCount, maxFloor, minFloor, costsPerDay, shaftSpeed, findRoute
+};
+if (typeof module !== 'undefined' && module.exports) module.exports = root.Engine;
+
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+'use strict';
+/* Verticale — rendu canvas, gestes tactiles, panneaux */
+(function () {
+const E = window.Engine;
+const CW = 40, FH = 56;
+const COLS = E.COLS;
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+const eur = (n) => fmt(n) + ' €';
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const SAVE_KEY = 'verticale-save-v1';
+const LS = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } }
+};
+
+/* ───────── couleurs et ciel ───────── */
+const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const mixa = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const rgb = (a, al) => (al == null ? 'rgb(' : 'rgba(') + Math.round(a[0]) + ',' + Math.round(a[1]) + ',' + Math.round(a[2]) + (al == null ? ')' : ',' + al + ')');
+const SKY = [[0, '#0b1330', '#1d2c58'], [5, '#101b40', '#3b4272'], [6.3, '#4f72b8', '#f4b48a'], [7.8, '#6db2ee', '#d2e8f6'], [12, '#4ea5ee', '#bfe3fa'],
+  [16.5, '#5aa7e6', '#d6ebf6'], [18.4, '#4a63ad', '#f2a475'], [19.8, '#202c58', '#6d4c7e'], [21.5, '#0b1330', '#1d2c58'], [24, '#0b1330', '#1d2c58']]
+  .map((k) => [k[0], hex(k[1]), hex(k[2])]);
+function skyAt(h) {
+  for (let i = 0; i < SKY.length - 1; i++) {
+    const a = SKY[i], b = SKY[i + 1];
+    if (h >= a[0] && h <= b[0]) { const t = (h - a[0]) / (b[0] - a[0]); return [mixa(a[1], b[1], t), mixa(a[2], b[2], t)]; }
+  }
+  return [SKY[0][1], SKY[0][2]];
+}
+function nightF(h) {
+  if (h >= 7.5 && h <= 17.5) return 0;
+  if (h >= 20.5 || h <= 5.5) return 1;
+  if (h > 17.5) return (h - 17.5) / 3;
+  return 1 - (h - 5.5) / 2;
+}
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const prng = mulberry(7);
+const LAYERS = [0.32, 0.55].map((p, li) => {
+  const items = [];
+  for (let x = -3200; x < 5200; x += 60 + prng() * 70) items.push({ x, w: 44 + prng() * 60, h: (li ? 90 : 150) + prng() * (li ? 160 : 230), s: prng() });
+  return { p, items };
+});
+const STARS = Array.from({ length: 90 }, () => [prng(), prng() * 0.7, 0.5 + prng() * 1.3]);
+const TREES = Array.from({ length: 30 }, (_, i) => ({ x: -1600 + i * 190 + prng() * 120, s: 0.8 + prng() * 0.7 }));
+
+/* ───────── état UI ───────── */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+const cam = { x: 20 * CW, y: -FH * 2, z: 0.8, tx: null, ty: null };
+const ui = { cat: 'home', tool: null, ghost: null, sel: null, sheet: null, tab: 'goals', speed: 2, paused: false, modal: false, floats: [], muted: false, advDismiss: {}, advIdx: 0, hudAt: 0, rankShown: 0, confirmNew: false };
+const SPEEDS = [1, 2, 4, 8];
+let selRef = null;
+
+const TONES = {
+  apt: ['#dce7f1', '#f3dfcf', '#ddebda', '#ecdff1'], pent: ['#ecdcb4'], office: ['#cbd6e2'], shop: ['#f6dcae'], resto: ['#f2baa9'], janitor: ['#ccd6a8'], parking: ['#b8bdc4'], hall: ['#d6dde6'], stair: ['#c3cad2'],
+  studio: ['#e6e1f1', '#f1e6dc', '#dcebe6'], loft: ['#e9dcc8', '#d9dfe6'], cowork: ['#d3e3df'], openspace: ['#c7d2e0'], bank: ['#e3dcc0'], clinic: ['#e1eef0'], daycare: ['#f7e3a8'],
+  bakery: ['#f5dfc2'], cafe: ['#e5d5c0'], salon: ['#f1d3dc'], grocery: ['#d9ebcf'], pharmacy: ['#d8eee0'], gym: ['#d3dbe8'], cinema: ['#cfc5dc'], bar: ['#d9bfa6'], club: ['#2a2038'],
+  observatory: ['#232f55'], trash: ['#cfd6c6'], security: ['#c9d0da'], tech: ['#d4d6d9'], garden: ['#d6ecd0'], solar: ['#cfe2ee'], metro: ['#d5dbe3'], heli: ['#c9ced6']
+};
+const ICON = {
+  apt: '<path d="M4 11l8-6 8 6v8H4z"/><path d="M10 19v-5h4v5"/>',
+  elev: '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M12 8l-2.5 3h5zM12 16l2.5-3h-5z" fill="currentColor"/>',
+  stair: '<path d="M4 19h4v-4h4v-4h4V7h4"/>',
+  hall: '<path d="M5 20V9a7 7 0 0114 0v11z"/><path d="M12 9v11"/>',
+  office: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
+  shop: '<path d="M4 9l1.5-5h13L20 9z"/><path d="M5 9v11h14V9M10 20v-6h4v6"/>',
+  janitor: '<path d="M14 3l-5 10"/><path d="M6 13l6 2 3 6-9-1z"/>',
+  resto: '<circle cx="12" cy="13" r="6"/><path d="M12 7V4M4 4v6M20 4v6"/>',
+  parking: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 17V8h3a2.5 2.5 0 010 5h-3"/>',
+  pent: '<path d="M4 20V10l8-6 8 6v10z"/><path d="M12 9l1 2 2 .3-1.5 1.4.4 2.1L12 13.8 10.1 14.8l.4-2.1L9 11.3l2-.3z" fill="currentColor"/>',
+  studio: '<path d="M3 18V8M3 14h18v4M21 14v-2a3 3 0 00-3-3h-7v5"/><circle cx="7" cy="11.5" r="1.6"/>',
+  loft: '<path d="M4 20V6h16v14z"/><path d="M4 10h16M9 6v4M15 6v4M8 20v-5h8v5"/>',
+  cowork: '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20M9 15v4M15 15v4"/>',
+  openspace: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  bank: '<path d="M3 9l9-5 9 5zM5 9v8M9.5 9v8M14.5 9v8M19 9v8M3 20h18"/>',
+  clinic: '<path d="M12 20s-8-5-8-10.5A4.5 4.5 0 0112 7a4.5 4.5 0 018 2.5C20 15 12 20 12 20z"/><path d="M12 10v5M9.5 12.5h5"/>',
+  daycare: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5a4 4 0 007 0"/><circle cx="9" cy="10" r=".6" fill="currentColor"/><circle cx="15" cy="10" r=".6" fill="currentColor"/>',
+  bakery: '<path d="M4 15c0-5 3-8 8-8s8 3 8 8z"/><path d="M4 15h16v3H4zM9 9l1 2M13 8l1 2"/>',
+  cafe: '<path d="M5 9h11v5a5 5 0 01-5 5h-1a5 5 0 01-5-5z"/><path d="M16 10h2a2.5 2.5 0 010 5h-2M8 4v2M12 4v2"/>',
+  salon: '<circle cx="7" cy="17" r="2.6"/><circle cx="17" cy="17" r="2.6"/><path d="M8.6 15L18 4M15.4 15L6 4"/>',
+  grocery: '<path d="M3 5h3l2.2 9h9l2-6.5H7"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="16.5" cy="19" r="1.4"/>',
+  pharmacy: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>',
+  gym: '<path d="M2 12h20M5 8v8M8 6v12M16 6v12M19 8v8"/>',
+  cinema: '<rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M3 7l3-4h4l-3 4M12 3l-3 4M17 3l-3 4M21 7l-3-4"/><path d="M10 11.5v5l4.5-2.5z" fill="currentColor"/>',
+  bar: '<path d="M4 4h16l-8 9z"/><path d="M12 13v7M8 20h8"/>',
+  club: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4v16M6 7c4 2 8 2 12 0M6 17c4-2 8-2 12 0"/>',
+  observatory: '<path d="M5 19a7 7 0 0114 0z"/><path d="M12 12l6-6M4 5l1 1.6M18 3.5l.7 1.6M20 9l1.6.6"/>',
+  trash: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 11v6M14 11v6"/>',
+  security: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5L16 9.5"/>',
+  tech: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>',
+  garden: '<circle cx="12" cy="9" r="6"/><path d="M12 15v6M8 21h8M10 9l2 2 3-3"/>',
+  solar: '<path d="M4 17l2.5-9h11L20 17zM9.5 8l-1 9M14.5 8l1 9M5.3 12.5h13.4"/><path d="M12 3v2M5 4.5l1.3 1.3M19 4.5l-1.3 1.3"/>',
+  metro: '<circle cx="12" cy="12" r="9"/><path d="M7.5 16V8l4.5 5 4.5-5v8"/>',
+  heli: '<circle cx="12" cy="12" r="9"/><path d="M9 7.5v9M15 7.5v9M9 12h6"/>'
+};
+const SVG = (k) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICON[k] + '</svg>';
+
+/* ───────── son ───────── */
+let actx = null;
+function beep(freq, dur, type, vol, when) {
+  if (ui.muted) return;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain();
+    const t0 = actx.currentTime + (when || 0);
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.05, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) { /* audio indisponible */ }
+}
+const SOUND = {
+  build() { beep(190, 0.09, 'square', 0.04); beep(120, 0.12, 'square', 0.04, 0.07); },
+  demolish() { beep(90, 0.18, 'sawtooth', 0.04); },
+  cash() { beep(880, 0.08, 'triangle', 0.035); beep(1320, 0.14, 'triangle', 0.03, 0.07); },
+  rank() { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.18, 'triangle', 0.05, i * 0.1)); },
+  err() { beep(150, 0.16, 'sawtooth', 0.04); }
+};
+
+/* ───────── canvas ───────── */
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+}
+function clampCam() {
+  cam.z = clamp(cam.z, 0.3, 2.4);
+  cam.x = clamp(cam.x, -4 * CW, (COLS + 4) * CW);
+  cam.y = clamp(cam.y, -(E.FMAX + 4) * FH, (-E.FMIN + 2) * FH);
+}
+function fitLot() {
+  const S = E.S;
+  const cols = S.owned.r - S.owned.l + 1;
+  cam.z = clamp((W - 24) / (cols * CW + 40), 0.35, 1.3);
+  cam.x = (S.owned.l + cols / 2) * CW;
+  cam.y = -0.16 * H / cam.z;
+  clampCam();
+}
+const w2sx = (wx) => (wx - cam.x) * cam.z + W / 2;
+const w2sy = (wy) => (wy - cam.y) * cam.z + H / 2;
+const s2wx = (sx) => (sx - W / 2) / cam.z + cam.x;
+const s2wy = (sy) => (sy - H / 2) / cam.z + cam.y;
+const cellOf = (sx, sy) => ({ c: Math.floor(s2wx(sx) / CW), f: Math.floor(-s2wy(sy) / FH) });
+
+function rrect(x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+}
+
+let cur = null;   // contexte de dessin (heure, nuit, lit)
+function drawSky() {
+  const S = E.S, h = (S.T % E.DAY) / 60, night = nightF(h);
+  const sk = skyAt(h);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, rgb(sk[0])); g.addColorStop(1, rgb(sk[1]));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (night > 0.1) {
+    ctx.fillStyle = 'rgba(255,255,255,' + (night * 0.8) + ')';
+    for (const s of STARS) ctx.fillRect(s[0] * W, s[1] * H, s[2], s[2]);
+  }
+  // soleil / lune
+  const isDay = h >= 6 && h < 18;
+  const t = isDay ? (h - 6) / 12 : ((h + 6) % 24) / 12;
+  const sx = W * (0.08 + 0.84 * t), sy = H * 0.5 - Math.sin(Math.PI * t) * H * 0.38;
+  if (isDay) {
+    const rg = ctx.createRadialGradient(sx, sy, 4, sx, sy, 60);
+    rg.addColorStop(0, 'rgba(255,244,200,.95)'); rg.addColorStop(0.25, 'rgba(255,230,160,.5)'); rg.addColorStop(1, 'rgba(255,230,160,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(sx, sy, 60, 0, 7); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(235,240,255,.9)'; ctx.beginPath(); ctx.arc(sx, sy, 15, 0, 7); ctx.fill();
+    ctx.fillStyle = rgb(sk[0]); ctx.beginPath(); ctx.arc(sx + 6, sy - 3, 13, 0, 7); ctx.fill();
+  }
+  // nuages
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.6 * (1 - night * 0.85)) + ')';
+  for (let i = 0; i < 6; i++) {
+    const cx = ((i * 263 + S.simT * (3 + i * 0.7)) % (W + 320)) - 160;
+    const cy = 70 + ((i * 97) % 220) - cam.y * 0.04;
+    const s = 26 + (i % 3) * 12;
+    ctx.beginPath(); ctx.ellipse(cx, cy, s * 1.6, s * 0.55, 0, 0, 7); ctx.ellipse(cx - s, cy + 6, s, s * 0.4, 0, 0, 7); ctx.ellipse(cx + s, cy + 5, s * 1.1, s * 0.42, 0, 0, 7); ctx.fill();
+  }
+  cur = { h, night, sk, S };
+  // horizon
+  const gy = w2sy(0);
+  const farN = [10, 14, 34];
+  LAYERS.forEach((L, li) => {
+    const col = mixa(mixa(sk[1], [58, 80, 108], 0.3 + li * 0.25), farN, night * 0.8);
+    ctx.fillStyle = rgb(col);
+    const k = cam.z * L.p;
+    for (const b of L.items) {
+      const bx = W / 2 + (b.x - cam.x) * k, bw = b.w * k * 1.6;
+      if (bx + bw < 0 || bx > W) continue;
+      const bh = b.h * k * 1.5;
+      ctx.fillRect(bx, gy - bh, bw, bh + 2);
+    }
+    if (night > 0.3 && li === 1) {
+      ctx.fillStyle = 'rgba(255,214,120,' + (night * 0.7) + ')';
+      for (const b of L.items) {
+        const bx = W / 2 + (b.x - cam.x) * k, bw = b.w * k * 1.6, bh = b.h * k * 1.5;
+        if (bx + bw < 0 || bx > W || b.s < 0.4) continue;
+        for (let yy = gy - bh + 6 * k * 2; yy < gy - 8; yy += 16 * k * 1.6)
+          for (let xx = bx + 4 * k * 1.5; xx < bx + bw - 4; xx += 12 * k * 1.7) if (((xx * 7 + yy * 13) | 0) % 5 === 0) ctx.fillRect(xx, yy, 3 * k * 1.7, 4 * k * 1.7);
+      }
+    }
+  });
+}
+
+function drawGround() {
+  const S = cur.S, night = cur.night;
+  const x0 = -3000, x1 = COLS * CW + 3000;
+  // terre
+  const depth = Math.max((-E.FMIN + 1) * FH, s2wy(H) + 20);
+  const g = ctx.createLinearGradient(0, 0, 0, depth);
+  g.addColorStop(0, mixc('#7b6a57', night)); g.addColorStop(1, mixc('#3d352e', night));
+  ctx.fillStyle = g; ctx.fillRect(x0, 0, x1 - x0, depth);
+  ctx.fillStyle = 'rgba(0,0,0,.12)';
+  for (let i = 1; i < 4; i++) ctx.fillRect(x0, i * FH - 1, x1 - x0, 1.5);
+  // herbe + trottoir
+  ctx.fillStyle = mixc('#5e9a4a', night); ctx.fillRect(x0, -6, x1 - x0, 6);
+  ctx.fillStyle = mixc('#c9cfd6', night); ctx.fillRect(S.owned.l * CW - 14, -5, (S.owned.r - S.owned.l + 1) * CW + 28, 5);
+  // arbres sur les terrains à vendre
+  for (const t of TREES) {
+    const c = t.x / CW;
+    if (c >= S.owned.l - 1.5 && c <= S.owned.r + 2.5) continue;
+    ctx.fillStyle = mixc('#5a4330', night); ctx.fillRect(t.x - 3, -24 * t.s, 6, 24 * t.s);
+    ctx.fillStyle = mixc('#4c8a3f', night);
+    ctx.beginPath(); ctx.arc(t.x, -34 * t.s, 17 * t.s, 0, 7); ctx.arc(t.x - 11 * t.s, -26 * t.s, 12 * t.s, 0, 7); ctx.arc(t.x + 11 * t.s, -26 * t.s, 12 * t.s, 0, 7); ctx.fill();
+  }
+  // panneaux « à vendre »
+  const signs = [];
+  if (S.owned.l > 0) signs.push(S.owned.l * CW - 74);
+  if (S.owned.r < COLS - 1) signs.push((S.owned.r + 1) * CW + 74);
+  for (const sx of signs) {
+    ctx.fillStyle = mixc('#5a4330', night); ctx.fillRect(sx - 2, -30, 4, 30);
+    ctx.fillStyle = mixc('#f4f1e8', night); rrect(sx - 22, -44, 44, 20, 3); ctx.fill();
+    ctx.fillStyle = mixc('#c0352a', night); ctx.fillRect(sx - 22, -44, 44, 4);
+    ctx.fillStyle = mixc('#222', night); ctx.font = '700 8px "Public Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('À VENDRE', sx, -29);
+  }
+  // fondations visibles
+  ctx.fillStyle = 'rgba(30,40,55,.55)'; ctx.fillRect(S.owned.l * CW - 3, 0, 3, (-E.minFloor()) * FH);
+  ctx.fillRect((S.owned.r + 1) * CW, 0, 3, (-E.minFloor()) * FH);
+}
+function mixc(c, night) { const a = hex(c); return rgb(mixa(a, [a[0] * 0.28, a[1] * 0.3, a[2] * 0.45], night * 0.8)); }
+
+function drawFloorLabels() {
+  const S = cur.S;
+  const x = S.owned.l * CW - 8;
+  const step = cam.z < 0.5 ? 5 : cam.z < 0.8 ? 2 : 1;
+  const fmin = Math.max(E.minFloor(), Math.floor(-s2wy(H) / FH) - 1), fmax = Math.min(E.maxFloor(), Math.ceil(-s2wy(0) / FH));
+  ctx.textAlign = 'right'; ctx.fillStyle = cur.night > 0.5 ? 'rgba(230,238,250,.75)' : 'rgba(20,32,48,.7)';
+  ctx.font = '700 11px "Big Shoulders Display", "Arial Narrow", sans-serif';
+  for (let f = fmin; f <= fmax; f++) {
+    if (f % step !== 0 && f !== 0) continue;
+    const y = -f * FH - FH / 2 + 4;
+    ctx.fillText(E.label(f), x, y);
+    ctx.fillRect(x + 2, -f * FH - 1, 4, 1);
+  }
+  // limite de hauteur
+  const top = -(E.maxFloor() + 1) * FH;
+  ctx.save(); ctx.setLineDash([6, 6]); ctx.strokeStyle = cur.night > 0.5 ? 'rgba(230,238,250,.35)' : 'rgba(20,32,48,.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(S.owned.l * CW, top); ctx.lineTo((S.owned.r + 1) * CW, top); ctx.stroke(); ctx.restore();
+  ctx.textAlign = 'left'; ctx.font = '700 10px "Public Sans", sans-serif';
+  ctx.fillText('Limite ★' + S.rank + ' : ' + E.label(E.maxFloor()), S.owned.l * CW + 2, top - 5);
+}
+
+function drawBuildGrid() {
+  if (!ui.tool) return;
+  const S = cur.S, tool = ui.tool;
+  const T = E.TYPES[tool];
+  const fmin = Math.max(E.minFloor(), Math.floor(-s2wy(H) / FH) - 1), fmax = Math.min(E.maxFloor(), Math.ceil(-s2wy(0) / FH));
+  const dark = cur.night > 0.5;
+  ctx.lineWidth = 1;
+  for (let f = fmin; f <= fmax; f++) {
+    for (let c = S.owned.l; c <= S.owned.r; c++) {
+      if (E.roomAt(f, c)) continue;
+      const supported = f <= 0 || E.roomAt(f - 1, c);
+      const x = c * CW, y = -(f + 1) * FH;
+      if (supported) { ctx.fillStyle = dark ? 'rgba(138,168,255,.14)' : 'rgba(31,79,216,.11)'; ctx.fillRect(x, y, CW, FH); }
+      ctx.strokeStyle = supported ? (dark ? 'rgba(200,215,255,.34)' : 'rgba(20,50,120,.30)') : (dark ? 'rgba(200,215,255,.07)' : 'rgba(20,50,120,.07)');
+      ctx.strokeRect(x + 0.5, y + 0.5, CW - 1, FH - 1);
+    }
+  }
+  // zone non possédée
+  ctx.fillStyle = 'rgba(30,40,55,.18)';
+  ctx.fillRect(-3000, -(E.maxFloor() + 2) * FH, S.owned.l * CW + 3000, (E.maxFloor() + 2 - E.minFloor()) * FH);
+  ctx.fillRect((S.owned.r + 1) * CW, -(E.maxFloor() + 2) * FH, 3000 + (COLS - S.owned.r) * CW, (E.maxFloor() + 2 - E.minFloor()) * FH);
+  void T;
+}
+
+/* — pièces — */
+function glass(lit) {
+  const n = cur.night;
+  if (lit && n > 0.25) return mixc('#ffd98a', 0);
+  return rgb(mixa(hex('#bfdcf2'), hex('#1b2647'), n));
+}
+function shade(c, k) { const a = hex(c); return rgb([a[0] * k, a[1] * k, a[2] * k]); }
+
+function winPane(x, y, w, h, gl) {
+  ctx.fillStyle = gl; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(40,40,50,.5)'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+function awning(x, y, w, c1, c2, hh) {
+  const k = Math.max(4, Math.round(w / 14));
+  for (let i = 0; i < k; i++) { ctx.fillStyle = i % 2 ? c2 : c1; ctx.fillRect(x + i * (w / k), y, w / k + 0.5, hh); }
+}
+function miniTable(cx, by) {
+  ctx.fillStyle = '#8a5a3a'; ctx.fillRect(cx - 1, by - 13, 2.5, 13);
+  ctx.fillStyle = '#f8f1e4'; ctx.beginPath(); ctx.ellipse(cx, by - 14, 8, 3, 0, 0, 7); ctx.fill();
+}
+
+function drawRoom(r, lit) {
+  const x = r.c * CW, w = r.w * CW, h = r.h * FH, y = -(r.f + r.h) * FH;
+  const T = E.TYPES[r.type];
+  const tones = TONES[r.type], base = tones[r.id % tones.length];
+  const vacant = T.lease && !r.tenant;
+  const n = cur.night;
+  // fond
+  ctx.fillStyle = base; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(40,32,24,.16)'; ctx.fillRect(x, y + h - 6, w, 6);
+  const gl = glass(lit && !vacant);
+  const detail = cam.z >= 0.4;
+  if (detail) switch (r.type) {
+    case 'apt': case 'pent': {
+      ctx.fillStyle = gl; ctx.fillRect(x + w * 0.56, y + 9, w * 0.34, h * 0.4);
+      ctx.strokeStyle = 'rgba(40,40,50,.55)'; ctx.lineWidth = 1.2; ctx.strokeRect(x + w * 0.56, y + 9, w * 0.34, h * 0.4);
+      ctx.beginPath(); ctx.moveTo(x + w * 0.73, y + 9); ctx.lineTo(x + w * 0.73, y + 9 + h * 0.4); ctx.stroke();
+      ctx.fillStyle = shade(base, 0.72); rrect(x + 5, y + h - 21, w * 0.36, 15, 3); ctx.fill();
+      ctx.fillStyle = shade(base, 0.6); ctx.fillRect(x + 5, y + h - 25, w * 0.36, 5);
+      ctx.fillStyle = '#6c4d33'; ctx.fillRect(x + w * 0.62, y + h - 16, 3, 10); ctx.fillStyle = lit && n > 0.3 ? '#ffe08a' : '#d9c28a'; ctx.beginPath(); ctx.arc(x + w * 0.62 + 1.5, y + h - 19, 5, 0, 7); ctx.fill();
+      if (r.type === 'pent') { ctx.fillStyle = '#c9a24a'; ctx.fillRect(x, y, w, 3); ctx.fillRect(x, y + h - 3, w, 3); }
+      break;
+    }
+    case 'office': {
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = gl; ctx.fillRect(x + 6 + i * (w / 3), y + 7, w / 3 - 10, h * 0.34); }
+      for (let i = 0; i < 2; i++) {
+        const dx = x + 10 + i * (w / 2 - 4);
+        ctx.fillStyle = '#7b6246'; ctx.fillRect(dx, y + h - 20, 26, 4); ctx.fillRect(dx + 2, y + h - 16, 2, 10); ctx.fillRect(dx + 22, y + h - 16, 2, 10);
+        ctx.fillStyle = lit ? '#8fd0ff' : '#44556a'; ctx.fillRect(dx + 8, y + h - 31, 11, 8); ctx.fillStyle = '#2d3642'; ctx.fillRect(dx + 12, y + h - 23, 3, 3);
+      }
+      break;
+    }
+    case 'shop': {
+      for (let i = 0; i < 8; i++) { ctx.fillStyle = i % 2 ? '#f8f3ea' : '#d6493c'; ctx.fillRect(x + i * (w / 8), y, w / 8, 11); }
+      ctx.fillStyle = '#d9dde3'; ctx.fillRect(x + 4, y + 16, w - 8, 3);
+      const cols = ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974', '#9b6bd6'];
+      for (let i = 0; i < 9; i++) { ctx.fillStyle = cols[i % 5]; ctx.fillRect(x + 8 + i * ((w - 16) / 9), y + 21, (w - 16) / 9 - 3, 9); }
+      ctx.fillStyle = '#7b5a3c'; ctx.fillRect(x + 8, y + h - 18, w * 0.5, 12);
+      ctx.fillStyle = gl; ctx.fillRect(x + w * 0.68, y + 34, w * 0.26, h - 44);
+      break;
+    }
+    case 'resto': {
+      ctx.fillStyle = 'rgba(0,0,0,.08)'; for (let i = 0; i < w / 8; i++) if (i % 2 === 0) ctx.fillRect(x + i * 8, y + h - 6, 8, 6);
+      for (let i = 0; i < 3; i++) {
+        const tx = x + 22 + i * (w - 36) / 2.4;
+        ctx.fillStyle = '#8a5a3a'; ctx.fillRect(tx - 1, y + h - 20, 3, 14);
+        ctx.fillStyle = '#f8f1e4'; ctx.beginPath(); ctx.ellipse(tx, y + h - 22, 11, 4, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = '#5a4030'; ctx.fillRect(tx - 1, y + 6, 1.5, 12);
+        ctx.fillStyle = lit ? '#ffd36e' : '#d6b45a'; ctx.beginPath(); ctx.arc(tx, y + 20, 5, 0, Math.PI); ctx.fill();
+      }
+      break;
+    }
+    case 'janitor': {
+      ctx.fillStyle = '#7d8a5a'; ctx.fillRect(x + 4, y + 8, w - 8, 4);
+      ctx.fillStyle = '#6b7b8c'; ctx.beginPath(); ctx.moveTo(x + 12, y + h - 22); ctx.lineTo(x + 26, y + h - 22); ctx.lineTo(x + 24, y + h - 7); ctx.lineTo(x + 14, y + h - 7); ctx.fill();
+      ctx.strokeStyle = '#7b5a3c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + w - 18, y + 14); ctx.lineTo(x + w - 14, y + h - 12); ctx.stroke();
+      ctx.fillStyle = '#d3a949'; ctx.fillRect(x + w - 20, y + h - 14, 10, 7);
+      break;
+    }
+    case 'parking': {
+      ctx.fillStyle = '#8f959c'; ctx.fillRect(x, y, w, 8);
+      ctx.fillStyle = '#f0c93c'; ctx.font = '800 14px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('P', x + 6, y + 22);
+      const cc = ['#c0392b', '#2d6fb6', '#e8e8e8', '#4a4f57'];
+      for (let i = 0; i < 3; i++) {
+        const cx = x + 22 + i * (w - 30) / 3;
+        ctx.fillStyle = cc[(r.id + i) % 4]; rrect(cx, y + h - 22, 36, 12, 4); ctx.fill();
+        ctx.fillStyle = '#9fc5e3'; ctx.fillRect(cx + 9, y + h - 28, 17, 7);
+        ctx.fillStyle = '#1c1f24'; ctx.beginPath(); ctx.arc(cx + 8, y + h - 9, 3.4, 0, 7); ctx.arc(cx + 28, y + h - 9, 3.4, 0, 7); ctx.fill();
+      }
+      break;
+    }
+    case 'studio': {
+      winPane(x + w * 0.45, y + 9, w * 0.45, h * 0.36, gl);
+      ctx.fillStyle = shade(base, 0.7); ctx.fillRect(x + 3, y + h - 17, w - 6, 10);
+      ctx.fillStyle = '#f4efe6'; ctx.fillRect(x + 3, y + h - 21, w * 0.4, 6);
+      break;
+    }
+    case 'loft': {
+      for (let i = 0; i < 3; i++) winPane(x + 6 + i * (w / 3), y + 7, w / 3 - 10, h * 0.5, gl);
+      ctx.fillStyle = '#6d4f3a'; rrect(x + 8, y + h - 22, w * 0.4, 14, 4); ctx.fill(); ctx.fillRect(x + 8, y + h - 27, w * 0.4, 6);
+      ctx.fillStyle = '#4f9d5e'; ctx.beginPath(); ctx.arc(x + w - 16, y + h - 21, 7, 0, 7); ctx.fill(); ctx.fillStyle = '#7b6246'; ctx.fillRect(x + w - 18, y + h - 15, 4, 9);
+      break;
+    }
+    case 'cowork': case 'openspace': {
+      const k = r.type === 'cowork' ? 3 : 5;
+      winPane(x + 6, y + 6, w - 12, 10, gl);
+      for (let i = 0; i < k; i++) {
+        const dx = x + 8 + i * ((w - 16) / k);
+        ctx.fillStyle = '#7b6246'; ctx.fillRect(dx, y + h - 19, 22, 4); ctx.fillRect(dx + 2, y + h - 15, 2, 9); ctx.fillRect(dx + 18, y + h - 15, 2, 9);
+        ctx.fillStyle = lit ? '#8fd0ff' : '#44556a'; ctx.fillRect(dx + 6, y + h - 29, 10, 8);
+      }
+      break;
+    }
+    case 'bank': {
+      ctx.fillStyle = '#efe9d8'; ctx.beginPath(); ctx.moveTo(x + 2, y + 15); ctx.lineTo(x + w / 2, y + 3); ctx.lineTo(x + w - 2, y + 15); ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = '#f9f5ea'; ctx.fillRect(x + 8 + i * ((w - 22) / 3), y + 17, 6, h - 26); }
+      ctx.fillStyle = '#b08d3c'; ctx.beginPath(); ctx.arc(x + w - 14, y + h - 18, 6, 0, 7); ctx.fill();
+      break;
+    }
+    case 'clinic': {
+      ctx.fillStyle = '#fff'; ctx.fillRect(x + 6, y + 8, 14, 14); ctx.fillStyle = '#d8453a'; ctx.fillRect(x + 11, y + 10, 4, 10); ctx.fillRect(x + 8, y + 13, 10, 4);
+      ctx.fillStyle = '#e8f0f4'; ctx.fillRect(x + w * 0.45, y + h - 20, w * 0.5, 9); ctx.fillStyle = '#a8c4d4'; ctx.fillRect(x + w * 0.45, y + h - 23, w * 0.18, 4);
+      winPane(x + w * 0.6, y + 9, w * 0.3, 14, gl);
+      break;
+    }
+    case 'daycare': {
+      const cc = ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974'];
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = cc[i]; ctx.fillRect(x + 8 + i * 12, y + h - 16 - (i % 2) * 6, 10, 10 + (i % 2) * 6); }
+      ctx.fillStyle = cc[r.id % 4]; ctx.beginPath(); ctx.arc(x + w - 18, y + 16, 7, 0, 7); ctx.fill();
+      ctx.fillStyle = '#f0a92e'; ctx.beginPath(); ctx.arc(x + w - 18, y + 16, 3, 0, 7); ctx.fill();
+      break;
+    }
+    case 'bakery': {
+      awning(x, y, w, '#e98fa6', '#f8f1e4', 11);
+      ctx.fillStyle = '#7b5a3c'; ctx.fillRect(x + 4, y + h - 18, w - 8, 12);
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = '#d99a4a'; ctx.beginPath(); ctx.ellipse(x + 12 + i * ((w - 20) / 3.5), y + h - 21, 6, 3, 0, 0, 7); ctx.fill(); }
+      winPane(x + 6, y + 22, w - 12, 12, gl);
+      break;
+    }
+    case 'cafe': {
+      awning(x, y, w, '#4f8f6a', '#f8f1e4', 11);
+      miniTable(x + 14, y + h - 5); miniTable(x + w - 16, y + h - 5);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x + w / 2 - 6, y + 22, 12, 9); ctx.fillStyle = '#7b5a3c'; ctx.fillRect(x + w / 2 - 4, y + 24, 8, 5);
+      break;
+    }
+    case 'salon': {
+      winPane(x + 6, y + 9, 16, 24, gl); winPane(x + w - 24, y + 9, 16, 24, gl);
+      for (let i = 0; i < 2; i++) { const cx = x + 12 + i * (w - 36); ctx.fillStyle = '#a63d52'; ctx.fillRect(cx, y + h - 15, 12, 8); ctx.fillRect(cx + 4, y + h - 20, 4, 6); }
+      break;
+    }
+    case 'grocery': {
+      awning(x, y, w, '#3d8f55', '#f8f1e4', 11);
+      for (let row = 0; row < 2; row++) for (let i = 0; i < 8; i++) { ctx.fillStyle = ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974', '#9b6bd6'][(i + row) % 5]; ctx.fillRect(x + 8 + i * ((w - 40) / 8), y + 18 + row * 12, (w - 40) / 8 - 3, 8); }
+      ctx.strokeStyle = '#59636e'; ctx.lineWidth = 1.5; ctx.strokeRect(x + w - 26, y + h - 20, 16, 10);
+      ctx.fillStyle = '#1c1f24'; ctx.beginPath(); ctx.arc(x + w - 23, y + h - 6, 2, 0, 7); ctx.arc(x + w - 13, y + h - 6, 2, 0, 7); ctx.fill();
+      break;
+    }
+    case 'pharmacy': {
+      ctx.fillStyle = '#2f9e62'; ctx.fillRect(x + w / 2 - 9, y + 5, 18, 18); ctx.fillStyle = '#fff'; ctx.fillRect(x + w / 2 - 2, y + 8, 4, 12); ctx.fillRect(x + w / 2 - 6, y + 12, 12, 4);
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974'][i]; ctx.fillRect(x + 6 + i * ((w - 12) / 4), y + h - 20, (w - 12) / 4 - 3, 8); }
+      break;
+    }
+    case 'gym': {
+      ctx.fillStyle = gl; ctx.fillRect(x + 6, y + 8, w * 0.35, 20);
+      for (let i = 0; i < 2; i++) { const bx = x + w * 0.45 + i * 38; ctx.fillStyle = '#4a4f57'; ctx.fillRect(bx, y + h - 17, 28, 4); ctx.fillRect(bx + 20, y + h - 30, 3, 15); ctx.fillStyle = '#d8453a'; ctx.fillRect(bx + 14, y + h - 33, 12, 4); }
+      ctx.fillStyle = '#6b7b8c'; for (let i = 0; i < 4; i++) { ctx.fillRect(x + 10 + i * 12, y + h - 14, 4, 7); ctx.fillRect(x + 8 + i * 12, y + h - 16, 8, 3); }
+      break;
+    }
+    case 'cinema': {
+      ctx.fillStyle = '#1f2a3a'; ctx.fillRect(x + 8, y + 10, w - 16, h * 0.4);
+      ctx.fillStyle = lit && n > 0.2 ? '#9fd0ff' : '#33465e'; ctx.fillRect(x + 11, y + 13, w - 22, h * 0.4 - 6);
+      for (let i = 0; i < 8; i++) { ctx.fillStyle = i % 2 ? '#ffe08a' : '#fff'; ctx.fillRect(x + 8 + i * ((w - 16) / 8), y + 3, (w - 16) / 8 - 3, 4); }
+      for (let i = 0; i < 7; i++) { ctx.fillStyle = '#9c2d3b'; rrect(x + 12 + i * ((w - 24) / 7), y + h - 14, 14, 9, 3); ctx.fill(); }
+      break;
+    }
+    case 'bar': {
+      ctx.fillStyle = '#5a3d2b'; ctx.fillRect(x + 6, y + h - 20, w - 12, 5); ctx.fillRect(x + 6, y + h - 15, w - 12, 9);
+      for (let i = 0; i < 5; i++) { ctx.fillStyle = ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974', '#9b6bd6'][i]; ctx.fillRect(x + 10 + i * ((w - 24) / 5), y + 14, 4, 12); }
+      ctx.fillStyle = '#d6dce4'; ctx.fillRect(x + 8, y + 12, w - 16, 2);
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = '#c9a24a'; ctx.beginPath(); ctx.arc(x + 14 + i * ((w - 28) / 3), y + h - 24, 3, 0, 7); ctx.fill(); }
+      if (n > 0.3 && lit) { ctx.fillStyle = '#ff5cb8'; ctx.fillRect(x + w - 20, y + 6, 14, 3); }
+      break;
+    }
+    case 'club': {
+      ctx.fillStyle = '#1a1424'; ctx.fillRect(x, y, w, h);
+      const t = (ui.tnow || 0) / 300, cols = ['#ff4fb8', '#4fd1ff', '#ffe14f', '#7dff6a'];
+      if (lit && !vacant) for (let i = 0; i < 4; i++) {
+        const bx = x + 12 + i * ((w - 24) / 3);
+        ctx.fillStyle = cols[(i + Math.floor(t)) % 4]; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.moveTo(x + w / 2, y + 6); ctx.lineTo(bx - 8, y + h - 8); ctx.lineTo(bx + 8, y + h - 8); ctx.fill(); ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = '#c9d4e0'; ctx.beginPath(); ctx.arc(x + w / 2, y + 12, 6, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a2f4a'; ctx.fillRect(x + 6, y + h - 10, w - 12, 5);
+      break;
+    }
+    case 'observatory': {
+      ctx.fillStyle = '#1b2647'; ctx.fillRect(x, y, w, h);
+      for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(x + ((r.id * 31 + i * 47) % (w - 6)) + 3, y + 5 + ((i * 13) % 22), 1.5, 1.5); }
+      ctx.fillStyle = '#c9d4e0'; ctx.beginPath(); ctx.arc(x + w / 2, y + h - 8, 22, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = '#59636e'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + w / 2 + 2, y + h - 22); ctx.lineTo(x + w / 2 + 20, y + h - 36); ctx.stroke();
+      break;
+    }
+    case 'trash': {
+      const cc = ['#4f8f6a', '#3f8edb', '#e0b43a'], bw = (w - 16) / 3;
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = cc[i]; rrect(x + 8 + i * bw, y + h - 26, bw - 4, 20, 3); ctx.fill(); ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x + 8 + i * bw, y + h - 26, bw - 4, 4); }
+      break;
+    }
+    case 'security': {
+      const mw = (w - 12) / 3;
+      ctx.fillStyle = '#1f2a3a'; for (let i = 0; i < 3; i++) ctx.fillRect(x + 6 + i * mw, y + 8, mw - 3, 12);
+      ctx.fillStyle = '#6fe0a0'; for (let i = 0; i < 3; i++) ctx.fillRect(x + 8 + i * mw, y + 10, mw - 7, 8);
+      ctx.fillStyle = '#4a5560'; ctx.fillRect(x + 6, y + h - 17, w - 12, 5); ctx.fillStyle = '#2a3a4f'; ctx.fillRect(x + w / 2 - 4, y + h - 27, 8, 10);
+      break;
+    }
+    case 'tech': {
+      ctx.strokeStyle = '#7d8a96'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + 4, y + 14); ctx.lineTo(x + w - 4, y + 14); ctx.moveTo(x + 14, y + 14); ctx.lineTo(x + 14, y + h - 4); ctx.stroke();
+      ctx.fillStyle = '#4a5560'; ctx.fillRect(x + w - 40, y + h - 32, 30, 26);
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = (i + Math.floor((ui.tnow || 0) / 500)) % 3 === 0 ? '#e2574c' : '#6fe0a0'; ctx.fillRect(x + w - 36 + i * 7, y + h - 28, 4, 4); }
+      ctx.fillStyle = '#d6dce4'; ctx.beginPath(); ctx.arc(x + 36, y + h - 18, 8, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#59636e'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 36, y + h - 18); ctx.lineTo(x + 40, y + h - 23); ctx.stroke();
+      break;
+    }
+    case 'garden': {
+      ctx.fillStyle = '#7fb069'; ctx.fillRect(x, y + h - 14, w, 14);
+      for (let i = 0; i < 3; i++) { const tx = x + 16 + i * ((w - 32) / 2); ctx.fillStyle = '#7b5a3c'; ctx.fillRect(tx - 2, y + h - 30, 4, 18); ctx.fillStyle = ['#3f8f4f', '#4fa35f', '#2f7f45'][i]; ctx.beginPath(); ctx.arc(tx, y + h - 36, 11, 0, 7); ctx.fill(); }
+      ctx.fillStyle = '#9a7a52'; ctx.fillRect(x + w / 2 - 12, y + h - 12, 24, 3);
+      break;
+    }
+    case 'solar': {
+      ctx.fillStyle = '#a9cde6'; ctx.fillRect(x, y, w, h * 0.35);
+      const q = [[x + 6, y + h - 10], [x + 20, y + 16], [x + w - 6, y + 16], [x + w - 20, y + h - 10]];
+      ctx.fillStyle = '#1f3f7a'; ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); ctx.lineTo(q[1][0], q[1][1]); ctx.lineTo(q[2][0], q[2][1]); ctx.lineTo(q[3][0], q[3][1]); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#8fb4e8'; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = 1; i < 4; i++) { ctx.moveTo(x + 20 + i * (w - 40) / 4, y + 16); ctx.lineTo(x + 6 + i * (w - 12) / 4, y + h - 10); }
+      ctx.moveTo(x + 13, y + h / 2 + 3); ctx.lineTo(x + w - 13, y + h / 2 + 3); ctx.stroke();
+      break;
+    }
+    case 'metro': {
+      ctx.fillStyle = '#d6dde6'; ctx.fillRect(x, y + h - 8, w, 8);
+      ctx.fillStyle = '#d8453a'; ctx.beginPath(); ctx.arc(x + 20, y + 20, 11, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '800 14px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('M', x + 20, y + 25);
+      for (let i = 0; i < 3; i++) { const gx = x + 50 + i * ((w - 62) / 3); ctx.fillStyle = '#6b7b8c'; ctx.fillRect(gx, y + h - 26, 6, 18); ctx.fillStyle = '#e0b43a'; ctx.fillRect(gx, y + h - 28, 6, 3); }
+      break;
+    }
+    case 'heli': {
+      ctx.fillStyle = '#4a4f57'; ctx.fillRect(x, y + h - 10, w, 10);
+      ctx.strokeStyle = '#f0c93c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + 30, y + h - 28, 16, 0, 7); ctx.stroke();
+      ctx.fillStyle = '#f0c93c'; ctx.font = '800 16px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('H', x + 30, y + h - 22);
+      const hx = x + w - 44, ang = Math.sin((ui.tnow || 0) / 60) * 18;
+      ctx.fillStyle = '#c0392b'; rrect(hx, y + h - 34, 30, 14, 6); ctx.fill(); ctx.fillStyle = '#9fc5e3'; ctx.fillRect(hx + 18, y + h - 31, 9, 7); ctx.fillRect(hx - 12, y + h - 28, 14, 3);
+      ctx.strokeStyle = '#2a3a4f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx + 15 - ang, y + h - 38); ctx.lineTo(hx + 15 + ang, y + h - 38); ctx.stroke();
+      break;
+    }
+    case 'hall': {
+      ctx.fillStyle = '#c4ccd6'; ctx.fillRect(x, y + h - 8, w, 8);
+      ctx.fillStyle = 'rgba(160,190,215,.7)'; const dx = x + w / 2 - 22; ctx.fillRect(dx, y + 12, 44, h - 20);
+      ctx.strokeStyle = '#59636e'; ctx.lineWidth = 1.5; ctx.strokeRect(dx, y + 12, 44, h - 20); ctx.beginPath(); ctx.moveTo(dx + 22, y + 12); ctx.lineTo(dx + 22, y + h - 8); ctx.stroke();
+      ctx.fillStyle = '#7b6246'; ctx.fillRect(x + 6, y + h - 22, 28, 14); ctx.fillStyle = '#4f9d5e'; ctx.beginPath(); ctx.arc(x + w - 14, y + h - 18, 7, 0, 7); ctx.fill(); ctx.fillStyle = '#7b6246'; ctx.fillRect(x + w - 16, y + h - 12, 4, 6);
+      ctx.fillStyle = '#2a3a4f'; ctx.font = '800 10px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('HALL', x + w / 2, y + 9);
+      break;
+    }
+    case 'stair': {
+      ctx.fillStyle = '#9aa3ae'; ctx.beginPath(); ctx.moveTo(x + 4, y + 2 * FH - 4);
+      for (let i = 0; i < 8; i++) { const sx = x + 4 + i * ((w - 8) / 8), sy = y + 2 * FH - 4 - i * ((2 * FH - 12) / 8); ctx.lineTo(sx, sy); ctx.lineTo(sx + (w - 8) / 8, sy); }
+      ctx.lineTo(x + w - 4, y + 2 * FH - 4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#59636e'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x + 4, y + 2 * FH - 28); ctx.lineTo(x + w - 4, y + 12); ctx.stroke();
+      break;
+    }
+    default: break;
+  }
+  // nuit
+  if (n > 0.02) {
+    ctx.fillStyle = 'rgba(8,14,40,' + (n * (lit && !vacant ? 0.18 : 0.52)) + ')';
+    ctx.fillRect(x, y, w, h);
+  }
+  if (vacant) {
+    ctx.fillStyle = 'rgba(235,240,246,.55)'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(30,45,70,.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.strokeRect(x + 5, y + h / 2 - 9, w - 10, 18); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(30,45,70,.85)'; ctx.font = '800 11px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'center'; ctx.fillText(r.reach ? 'À LOUER' : 'SANS ACCÈS', x + w / 2, y + h / 2 + 4);
+  }
+  if (!r.reach && (T.lease || (T.service && T.fx !== 'solar'))) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.strokeStyle = 'rgba(200,50,40,.5)'; ctx.lineWidth = 3;
+    for (let i = -h; i < w + h; i += 12) { ctx.beginPath(); ctx.moveTo(x + i, y + h); ctx.lineTo(x + i + h, y); ctx.stroke(); }
+    ctx.restore();
+  }
+  // saleté
+  if (r.dirt > 45 && r.tenant) {
+    ctx.fillStyle = 'rgba(70,55,40,.45)';
+    for (let i = 0; i < 6; i++) ctx.fillRect(x + 4 + ((r.id * 37 + i * 29) % (w - 10)), y + h - 7 + (i % 2) * 3, 3, 2);
+  }
+  // cadre
+  ctx.strokeStyle = 'rgba(25,35,50,.65)'; ctx.lineWidth = 1.6; ctx.strokeRect(x + 0.8, y + 0.8, w - 1.6, h - 1.6);
+  // pastille de satisfaction
+  if (T.lease && r.tenant && r.type !== 'parking') {
+    ctx.fillStyle = r.sat >= 70 ? '#2fae6a' : r.sat >= 45 ? '#e9a32a' : '#d8453a';
+    ctx.beginPath(); ctx.arc(x + w - 7, y + 7, 3.6, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  if (r.lvl > 0 && T.lease && !vacant) {
+    ctx.fillStyle = '#c9a24a';
+    for (let i = 0; i < r.lvl; i++) { ctx.beginPath(); ctx.moveTo(x + 5 + i * 8, y + h - 3); ctx.lineTo(x + 8.5 + i * 8, y + h - 9); ctx.lineTo(x + 12 + i * 8, y + h - 3); ctx.fill(); }
+  }
+  if (cam.z >= 0.75 && !vacant && r.type !== 'hall' && r.type !== 'stair') {
+    const dark = r.type === 'club' || r.type === 'observatory';
+    ctx.fillStyle = dark ? 'rgba(235,240,255,.85)' : 'rgba(20,30,45,.7)'; ctx.font = '700 8px "Public Sans", sans-serif'; ctx.textAlign = 'left';
+    let nm = T.name.toUpperCase();
+    const room = w - (T.lease ? 16 : 8);
+    if (ctx.measureText(nm).width > room && T.ab) nm = T.ab.toUpperCase();
+    if (ctx.measureText(nm).width <= room) ctx.fillText(nm, x + 4, y + 8 + (r.type === 'shop' || r.type === 'bakery' || r.type === 'cafe' || r.type === 'grocery' ? 4 : 0));
+  }
+}
+
+function drawShaftCell(r, doorOpen) {
+  const x = r.c * CW, y = -(r.f + 1) * FH;
+  ctx.fillStyle = '#2c3440'; ctx.fillRect(x, y, CW, FH);
+  ctx.fillStyle = '#3a4452'; ctx.fillRect(x + 4, y, 2, FH); ctx.fillRect(x + CW - 6, y, 2, FH);
+  ctx.fillStyle = '#566272'; ctx.fillRect(x + 8, y + FH - 3, CW - 16, 2);
+  ctx.fillStyle = doorOpen ? '#6ee09a' : '#e2574c'; ctx.beginPath(); ctx.arc(x + CW / 2, y + 6, 2.4, 0, 7); ctx.fill();
+  if (cur.night > 0.02) { ctx.fillStyle = 'rgba(8,14,40,' + cur.night * 0.25 + ')'; ctx.fillRect(x, y, CW, FH); }
+  ctx.strokeStyle = 'rgba(15,22,32,.8)'; ctx.lineWidth = 1.6; ctx.strokeRect(x + 0.8, y + 0.8, CW - 1.6, FH - 1.6);
+}
+
+const SKIN = ['#f2d3b8', '#e0b28f', '#b98962', '#8a5c3f'];
+const SHIRT = { res: ['#e2574c', '#3f8edb', '#f0a92e', '#5bb974', '#9b6bd6', '#e9779c', '#2fa5a5', '#8c9aab'], work: ['#2f4b7a', '#4c5b6b', '#7a5a3a', '#35555b', '#5b3f6b', '#3c6e8f'], cust: ['#ff6b57', '#ffb020', '#37c0a0', '#7a8cff', '#ff7ab6'], jan: ['#f2c230'] };
+function drawPerson(x, y, a, s) {
+  const sh = SHIRT[a.kind] || SHIRT.res;
+  ctx.fillStyle = sh[a.col % sh.length];
+  rrect(x - 3 * s, y - 11 * s, 6 * s, 10 * s, 2 * s); ctx.fill();
+  ctx.fillStyle = a.kind === 'jan' ? '#3b6ea5' : '#2a3140'; ctx.fillRect(x - 2.4 * s, y - 2.5 * s, 4.8 * s, 2.5 * s);
+  ctx.fillStyle = SKIN[(a.id * 7) % 4]; ctx.beginPath(); ctx.arc(x, y - 14 * s, 3.1 * s, 0, 7); ctx.fill();
+}
+
+function drawAgents() {
+  const S = cur.S, t = S.simT;
+  const x0 = s2wx(-20), x1 = s2wx(W + 20);
+  for (const a of S.agents) {
+    if (a.dead || a.st === 'away' || a.st === 'ride') continue;
+    const px = a.x * CW;
+    if (px < x0 || px > x1) continue;
+    let py = -a.fy * FH - 3;
+    if (a.st === 'walk' || a.st === 'stair') py -= Math.abs(Math.sin(t * 9 + a.id)) * 1.3;
+    drawPerson(px, py, a, 1);
+    if (a.st === 'wait' && t - a.w0 > 22) {
+      ctx.fillStyle = t - a.w0 > 50 ? '#d8302a' : '#e9a32a';
+      ctx.beginPath(); ctx.arc(px, py - 24, 4.2, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '800 7px "Public Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', px, py - 21.5);
+    }
+  }
+}
+
+function drawShafts() {
+  const S = cur.S;
+  for (const r of S.rooms.values()) {
+    if (r.type !== 'elev') continue;
+    const sh = S.shafts.get(r.shaft);
+    let open = false;
+    if (sh) for (const car of sh.cars) if (car.st === 'dwell' && Math.round(car.y) === r.f) open = true;
+    drawShaftCell(r, open);
+  }
+  for (const sh of S.shafts.values()) {
+    const x = sh.col * CW;
+    for (const car of sh.cars) {
+      const y = -(car.y + 1) * FH;
+      ctx.fillStyle = '#cfd6de'; rrect(x + 5, y + 4, CW - 10, FH - 8, 3); ctx.fill();
+      ctx.fillStyle = '#b6a063'; ctx.fillRect(x + 5, y + 4, CW - 10, 3);
+      ctx.fillStyle = car.st === 'dwell' ? '#fff3c4' : '#a9b3be'; ctx.fillRect(x + 8, y + 10, CW - 16, FH - 18);
+      ctx.strokeStyle = 'rgba(20,28,40,.8)'; ctx.lineWidth = 1.2; ctx.strokeRect(x + 5.6, y + 4.6, CW - 11.2, FH - 9.2);
+      let i = 0;
+      for (const p of car.pass) {
+        const px = x + 12 + (i % 4) * 5.5, py = y + FH - 9 - Math.floor(i / 4) * 9;
+        drawPerson(px, py, p, 0.62);
+        i++;
+        if (i >= 8) break;
+      }
+      if (car.dir !== 0 && car.st === 'move') {
+        ctx.fillStyle = '#2a3140'; ctx.beginPath();
+        if (car.dir > 0) { ctx.moveTo(x + CW / 2, y + 9); ctx.lineTo(x + CW / 2 - 4, y + 14); ctx.lineTo(x + CW / 2 + 4, y + 14); }
+        else { ctx.moveTo(x + CW / 2, y + 15); ctx.lineTo(x + CW / 2 - 4, y + 10); ctx.lineTo(x + CW / 2 + 4, y + 10); }
+        ctx.fill();
+      }
+    }
+    // files d'attente
+    for (const k of Object.keys(sh.q)) {
+      const n = sh.q[k].length;
+      if (n < 5) continue;
+      const y = -(+k + 1) * FH + 4;
+      ctx.fillStyle = n >= 10 ? '#d8302a' : '#e9a32a'; ctx.beginPath(); ctx.arc(x + CW + 8, y + 8, 8, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '800 9px "Public Sans", sans-serif'; ctx.textAlign = 'center'; ctx.fillText(String(n), x + CW + 8, y + 11);
+    }
+  }
+}
+
+function ghostCells(g) {
+  const T = E.TYPES[g.type];
+  if (g.type === 'elev') { const f0 = Math.min(g.a, g.b), f1 = Math.max(g.a, g.b); return { f: f0, f1, c: g.c, w: 1, h: f1 - f0 + 1 }; }
+  return { f: g.f, f1: g.f, c: g.c, w: T.w, h: T.h };
+}
+function ghostCheck(g) {
+  const gc = ghostCells(g);
+  const chk = E.canPlace(g.type, gc.f, gc.c, { f1: gc.f1 });
+  if (chk.ok && E.S.cash < chk.cost) return { ok: false, reason: 'Fonds insuffisants', cost: chk.cost };
+  return chk;
+}
+
+function drawGhost() {
+  const g = ui.ghost;
+  if (!g) return;
+  const gc = ghostCells(g), chk = ghostCheck(g);
+  const x = gc.c * CW, y = -(gc.f + gc.h) * FH, w = gc.w * CW, h = gc.h * FH;
+  ctx.fillStyle = chk.ok ? 'rgba(40,190,110,.42)' : 'rgba(225,60,50,.42)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = chk.ok ? '#18a35e' : '#d8302a'; ctx.lineWidth = 2.4; ctx.setLineDash([7, 4]); ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
+  ctx.fillStyle = '#fff'; ctx.font = '800 12px "Big Shoulders Display", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(E.TYPES[g.type].name.toUpperCase(), x + w / 2, y + Math.min(h, FH) / 2 + 4);
+}
+
+function drawSelection() {
+  const s = ui.sel;
+  if (!s) return;
+  ctx.strokeStyle = '#ffd23a'; ctx.lineWidth = 3 / cam.z * 0.9 + 1; ctx.setLineDash([]);
+  if (s.kind === 'room') {
+    const r = E.S.rooms.get(s.id); if (!r) return;
+    ctx.strokeRect(r.c * CW - 1, -(r.f + r.h) * FH - 1, r.w * CW + 2, r.h * FH + 2);
+  } else {
+    const sh = E.S.shafts.get(s.id); if (!sh) return;
+    ctx.strokeRect(sh.col * CW - 1, -(sh.f1 + 1) * FH - 1, CW + 2, (sh.f1 - sh.f0 + 1) * FH + 2);
+  }
+}
+
+function drawFloats(now) {
+  ctx.textAlign = 'center';
+  for (let i = ui.floats.length - 1; i >= 0; i--) {
+    const f = ui.floats[i], age = (now - f.t0) / 1400;
+    if (age >= 1) { ui.floats.splice(i, 1); continue; }
+    ctx.globalAlpha = 1 - age * age;
+    ctx.fillStyle = f.col; ctx.font = '800 14px "Big Shoulders Display", sans-serif';
+    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 3; ctx.strokeText(f.text, f.x, f.y - age * 34); ctx.fillText(f.text, f.x, f.y - age * 34);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw(now) {
+  const S = E.S;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawSky();
+  ctx.setTransform(dpr * cam.z, 0, 0, dpr * cam.z, dpr * (W / 2 - cam.x * cam.z), dpr * (H / 2 - cam.y * cam.z));
+  drawGround();
+  drawFloorLabels();
+  drawBuildGrid();
+  ui.tnow = now || 0;
+  const TY = E.TYPES;
+  const lit = new Set();
+  for (const a of S.agents) if (a.cur && (a.st === 'in' || a.st === 'visit')) lit.add(a.cur);
+  const m = S.T % E.DAY;
+  const x0 = s2wx(-10), x1 = s2wx(W + 10), y0 = s2wy(-10), y1 = s2wy(H + 10);
+  for (const r of S.rooms.values()) {
+    if (r.type === 'elev') continue;
+    const rx = r.c * CW, ry = -(r.f + r.h) * FH;
+    if (rx + r.w * CW < x0 || rx > x1 || ry + r.h * FH < y0 || ry > y1) continue;
+    let l = lit.has(r.id);
+    if (r.tenant && TY[r.type].hours && E.isOpen(r, m)) l = true;
+    if (r.type === 'hall') l = true;
+    drawRoom(r, l);
+  }
+  drawShafts();
+  drawAgents();
+  drawGhost();
+  drawSelection();
+  drawFloats(now);
+}
+
+/* ───────── entrées tactiles ───────── */
+const ptrs = new Map();
+let gesture = null;
+cv.addEventListener('pointerdown', (e) => {
+  cv.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY, sx: e.offsetX, sy: e.offsetY, t: performance.now(), moved: false });
+  if (ptrs.size === 1) {
+    const g = ui.ghost;
+    let onGhost = false;
+    if (g) {
+      const gc = ghostCells(g), cl = cellOf(e.offsetX, e.offsetY);
+      onGhost = cl.c >= gc.c && cl.c < gc.c + gc.w && cl.f >= gc.f && cl.f < gc.f + gc.h;
+    }
+    gesture = { mode: onGhost ? 'ghost' : 'pan', cx: cam.x, cy: cam.y };
+  } else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()];
+    gesture = { mode: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.z, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, wx: s2wx((a.x + b.x) / 2), wy: s2wy((a.y + b.y) / 2) };
+  }
+  cam.tx = null;
+});
+cv.addEventListener('pointermove', (e) => {
+  const p = ptrs.get(e.pointerId);
+  if (!p) return;
+  p.x = e.offsetX; p.y = e.offsetY;
+  if (Math.hypot(p.x - p.sx, p.y - p.sy) > 8) p.moved = true;
+  if (!gesture) return;
+  if (gesture.mode === 'pinch' && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    cam.z = clamp(gesture.z * d / Math.max(10, gesture.d), 0.3, 2.4);
+    cam.x = gesture.wx - (mx - W / 2) / cam.z; cam.y = gesture.wy - (my - H / 2) / cam.z;
+    clampCam();
+  } else if (gesture.mode === 'pan' && p.moved && ptrs.size === 1) {
+    cam.x = gesture.cx - (p.x - p.sx) / cam.z; cam.y = gesture.cy - (p.y - p.sy) / cam.z; clampCam();
+  } else if (gesture.mode === 'ghost' && p.moved) {
+    moveGhostTo(p.x, p.y);
+  }
+});
+function endPtr(e) {
+  const p = ptrs.get(e.pointerId);
+  ptrs.delete(e.pointerId);
+  if (!p) return;
+  if (!p.moved && performance.now() - p.t < 450 && ptrs.size === 0 && gesture && gesture.mode !== 'pinch') onTap(p.x, p.y);
+  if (ptrs.size === 0) gesture = null;
+  else if (ptrs.size === 1) { const q = [...ptrs.values()][0]; q.sx = q.x; q.sy = q.y; q.moved = true; gesture = { mode: 'pan', cx: cam.x, cy: cam.y }; }
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const wx = s2wx(e.offsetX), wy = s2wy(e.offsetY);
+  cam.z = clamp(cam.z * (e.deltaY < 0 ? 1.12 : 1 / 1.12), 0.3, 2.4);
+  cam.x = wx - (e.offsetX - W / 2) / cam.z; cam.y = wy - (e.offsetY - H / 2) / cam.z; clampCam();
+}, { passive: false });
+
+function moveGhostTo(sx, sy) {
+  const g = ui.ghost; if (!g) return;
+  const cl = cellOf(sx, sy), T = E.TYPES[g.type];
+  if (g.type === 'elev') { g.c = clamp(cl.c, 0, COLS - 1); const d = g.b - g.a; g.a = cl.f; g.b = cl.f + d; }
+  else { g.c = clamp(cl.c - Math.floor((T.w - 1) / 2), 0, COLS - T.w); g.f = clamp(cl.f, E.FMIN, E.FMAX); }
+  renderBuildBar();
+}
+
+function onTap(sx, sy) {
+  const S = E.S, cl = cellOf(sx, sy);
+  if (ui.tool) {
+    const T = E.TYPES[ui.tool];
+    if (ui.tool === 'elev' && ui.ghost && cl.c === ui.ghost.c) {
+      ui.ghost.b = cl.f; renderBuildBar(); return;
+    }
+    if (ui.tool === 'elev') ui.ghost = { type: 'elev', c: clamp(cl.c, 0, COLS - 1), a: cl.f, b: cl.f };
+    else ui.ghost = { type: ui.tool, c: clamp(cl.c - Math.floor((T.w - 1) / 2), 0, COLS - T.w), f: clamp(cl.f, E.FMIN, E.FMAX) };
+    renderBuildBar();
+    return;
+  }
+  // terrain à vendre
+  const wx = s2wx(sx), wy = s2wy(sy);
+  if (wy > -60 && wy < 4 && ((S.owned.l > 0 && Math.abs(wx - (S.owned.l * CW - 74)) < 34) || (S.owned.r < COLS - 1 && Math.abs(wx - ((S.owned.r + 1) * CW + 74)) < 34))) { openMenu('land'); return; }
+  const r = E.roomAt(cl.f, cl.c);
+  if (r) select(r.type === 'elev' ? { kind: 'shaft', id: r.shaft } : { kind: 'room', id: r.id });
+  else select(null);
+}
+
+/* ───────── palette, barre de construction ───────── */
+function buildDock() {
+  const S = E.S, el = $('#tools');
+  $('#cats').innerHTML = E.CATS.map(([id, nm]) => {
+    const free = E.ORDER.filter((k) => E.TYPES[k].cat === id && S.rank >= E.TYPES[k].rank).length;
+    return '<button class="cat" role="tab" data-cat="' + id + '" aria-selected="' + (ui.cat === id) + '">' + nm + (free ? '' : ' <i>★</i>') + '</button>';
+  }).join('');
+  let html = '<button class="tool hand" data-tool="" aria-pressed="' + (!ui.tool) + '"><span class="sw" style="background:transparent;border-color:var(--line);color:var(--ink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 013 0v5m0-1a1.5 1.5 0 013 0v2m0-1a1.5 1.5 0 013 0v4a6 6 0 01-6 6h-1a6 6 0 01-5-3l-2-4a1.5 1.5 0 012.5-1.5L9 14"/></svg></span><span class="nm">Visiter</span><span class="pr">&nbsp;</span></button>';
+  for (const k of E.ORDER) {
+    const T = E.TYPES[k];
+    if (T.cat !== ui.cat) continue;
+    const locked = S.rank < T.rank, dark = k === 'club' || k === 'observatory';
+    html += '<button class="tool' + (locked ? ' locked' : '') + '" data-tool="' + k + '" aria-pressed="' + (ui.tool === k) + '" aria-label="' + T.name + '">' +
+      '<span class="sw" style="background:' + TONES[k === 'elev' ? 'stair' : k][0] + (dark ? ';color:#e8ecff' : '') + '">' + SVG(k) + '</span><span class="nm">' + (T.ab || T.name) + '</span>' +
+      '<span class="pr">' + (locked ? '★' + T.rank : eur(T.cost) + (k === 'elev' ? '/ét.' : '')) + '</span></button>';
+  }
+  el.innerHTML = html;
+  el.scrollLeft = 0;
+  ui.dockRank = S.rank;
+}
+function refreshDockState() {
+  const S = E.S;
+  document.querySelectorAll('.tool[data-tool]').forEach((b) => {
+    const k = b.dataset.tool;
+    b.setAttribute('aria-pressed', String(ui.tool === k || (!ui.tool && !k)));
+    if (k) b.classList.toggle('poor', S.rank >= E.TYPES[k].rank && S.cash < E.TYPES[k].cost);
+  });
+}
+$('#cats').addEventListener('click', (e) => {
+  const b = e.target.closest('.cat'); if (!b) return;
+  ui.cat = b.dataset.cat; buildDock(); refreshDockState();
+});
+$('#tools').addEventListener('click', (e) => {
+  const b = e.target.closest('.tool'); if (!b) return;
+  const k = b.dataset.tool;
+  if (!k) { setTool(null); return; }
+  const T = E.TYPES[k];
+  if (E.S.rank < T.rank) { toast('Débloqué au rang ★' + T.rank + ' (' + E.RANK_POP[T.rank] + ' habitants).', 'warn'); SOUND.err(); return; }
+  setTool(ui.tool === k ? null : k);
+});
+
+function setTool(k) {
+  ui.tool = k; ui.ghost = null;
+  if (k && E.TYPES[k].cat !== ui.cat) { ui.cat = E.TYPES[k].cat; buildDock(); }
+  if (k) { select(null); ui.ghost = autoGhost(k); focusGhost(); }
+  renderBuildBar(); refreshDockState();
+}
+
+function autoGhost(type, near) {
+  const S = E.S, T = E.TYPES[type];
+  const cc = near ? near.c : Math.floor(s2wx(W / 2) / CW), cf = near ? near.f : (T.floors === 'basement' ? -1 : 0);
+  let best = null, bd = 1e9;
+  if (type === 'elev') {
+    let top = 1;
+    for (const r of S.rooms.values()) top = Math.max(top, r.f + r.h - 1);
+    top = Math.min(top, E.maxFloor());
+    for (let c = S.owned.l; c <= S.owned.r; c++) {
+      for (const tp of [top, 1, 0]) {
+        const chk = E.canPlace('elev', 0, c, { f1: tp });
+        if (!chk.ok) continue;
+        const d = Math.abs(c - cc) + (tp === top ? 0 : 4);
+        if (d < bd) { bd = d; best = { type, c, a: 0, b: tp }; }
+        break;
+      }
+    }
+    return best || { type, c: clamp(cc, S.owned.l, S.owned.r), a: 0, b: 0 };
+  }
+  const f0 = T.floors === 'basement' ? -1 : 0;
+  for (let f = Math.max(E.minFloor(), f0 === -1 ? E.minFloor() : 0); f <= E.maxFloor(); f++) {
+    if (T.floors === 'ground' && f !== 0) continue;
+    if (T.floors === 'basement' && f >= 0) continue;
+    if (T.minF && f < T.minF) continue;
+    for (let c = S.owned.l; c + T.w - 1 <= S.owned.r; c++) {
+      if (!E.canPlace(type, f, c).ok) continue;
+      const d = Math.abs(c + T.w / 2 - cc) + Math.abs(f - cf) * 10;
+      if (d < bd) { bd = d; best = { type, c, f }; }
+    }
+  }
+  if (best) return best;
+  return { type, c: clamp(cc, S.owned.l, S.owned.r - T.w + 1), f: T.floors === 'basement' ? -1 : Math.max(0, cf) };
+}
+
+function focusGhost() {
+  const g = ui.ghost; if (!g) return;
+  const gc = ghostCells(g);
+  const sx = w2sx((gc.c + gc.w / 2) * CW), sy = w2sy(-(gc.f + gc.h / 2) * FH);
+  if (sx < 30 || sx > W - 30 || sy < 140 || sy > H - 260) { cam.tx = (gc.c + gc.w / 2) * CW; cam.ty = -(gc.f + gc.h / 2) * FH + (H * 0.12) / cam.z; }
+}
+
+function renderBuildBar() {
+  const el = $('#build'), g = ui.ghost;
+  if (!ui.tool || !g) { el.hidden = true; el.innerHTML = ''; return; }
+  const T = E.TYPES[g.type], gc = ghostCells(g), chk = ghostCheck(g);
+  const cost = chk.cost != null ? chk.cost : E.costOf(g.type, gc.f, gc.c, { f1: gc.f1 });
+  let where = E.label(gc.f) + (g.type === 'elev' && gc.f1 > gc.f ? ' → ' + E.label(gc.f1) : '');
+  const step = g.type === 'elev'
+    ? '<button class="btn sm" data-b="down" aria-label="Moins un étage">▼</button><button class="btn sm" data-b="up" aria-label="Plus un étage">▲</button>' : '';
+  el.hidden = false;
+  el.innerHTML = '<div class="bbar"><div class="info"><div class="t">' + T.name + ' · ' + where + '</div>' +
+    '<div class="s' + (chk.ok ? '' : ' err') + '">' + (chk.ok ? (g.type === 'elev' ? (gc.h) + ' étage' + (gc.h > 1 ? 's' : '') + ' · glissez ou touchez un autre étage pour allonger' : T.desc) : chk.reason) + '</div></div>' +
+    '<span class="price">' + eur(cost) + '</span>' + step +
+    '<button class="btn" data-b="cancel" aria-label="Annuler">✕</button>' +
+    '<button class="btn pri" data-b="ok"' + (chk.ok ? '' : ' disabled') + '>Construire</button></div>';
+}
+$('#build').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-b]'); if (!b || !ui.ghost) return;
+  const g = ui.ghost, act = b.dataset.b;
+  if (act === 'cancel') { setTool(null); return; }
+  if (act === 'up') { const hi = Math.max(g.a, g.b), lo = Math.min(g.a, g.b); g.a = lo; g.b = Math.min(hi + 1, E.maxFloor()); renderBuildBar(); return; }
+  if (act === 'down') { const hi = Math.max(g.a, g.b), lo = Math.min(g.a, g.b); g.a = lo; g.b = Math.max(lo, hi - 1); renderBuildBar(); return; }
+  if (act === 'ok') {
+    const gc = ghostCells(g);
+    const res = E.place(g.type, gc.f, gc.c, { f1: gc.f1 });
+    if (!res.ok) { toast(res.reason, 'warn'); SOUND.err(); return; }
+    ui.floats.push({ x: (gc.c + gc.w / 2) * CW, y: -(gc.f + gc.h) * FH, text: '−' + fmt(res.cost) + ' €', col: '#ff9a8a', t0: performance.now() });
+    if (g.type === 'elev') { ui.ghost = autoGhost('elev', { c: gc.c, f: gc.f }); }
+    else ui.ghost = autoGhost(g.type, { c: gc.c + gc.w, f: gc.f });
+    renderBuildBar(); queueSave();
+  }
+});
+
+/* ───────── sélection et panneaux ───────── */
+function select(s) {
+  ui.sel = s;
+  if (!s) { if (ui.sheet === 'room') closeSheet(); return; }
+  if (ui.tool) setTool(null);
+  openRoomSheet();
+  const S = E.S;
+  let wx, wy;
+  if (s.kind === 'room') { const r = S.rooms.get(s.id); if (!r) return; wx = (r.c + r.w / 2) * CW; wy = -(r.f + r.h / 2) * FH; }
+  else { const sh = S.shafts.get(s.id); if (!sh) return; wx = (sh.col + 0.5) * CW; wy = -((sh.f0 + sh.f1 + 1) / 2) * FH; }
+  const sy = w2sy(wy);
+  if (sy > H * 0.5 || sy < 130) { cam.tx = wx; cam.ty = wy + (H * 0.22) / cam.z; }
+}
+
+const wrap = $('#sheetwrap');
+function closeSheet() {
+  if (ui.sheet === 'welcome') LS.set('verticale-seen', '1');
+  ui.sheet = null; wrap.className = 'layer'; wrap.innerHTML = '';
+  if (ui.modal) { ui.modal = false; }
+  if (ui.sel && !ui.keepSel) ui.sel = null;
+}
+function sheetHTML(cls, title, body, tabs) {
+  return (cls === 'room' ? '' : '<div class="back" data-close="1"></div>') + '<section class="sheet ' + cls + '" role="dialog" aria-label="' + title + '"><header><h2>' + title + '</h2><button class="x" data-close="1" aria-label="Fermer">✕</button></header>' +
+    (tabs || '') + '<div class="sbody">' + body + '</div></section>';
+}
+wrap.addEventListener('pointerdown', () => { ui.holdUntil = performance.now() + 900; });
+wrap.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-close],[data-act],[data-tab]');
+  if (!t) return;
+  if (t.dataset.close) { closeSheet(); return; }
+  if (t.dataset.tab) { ui.tab = t.dataset.tab; ui.confirmNew = false; renderMenu(); return; }
+  doAct(t.dataset.act, t);
+});
+wrap.addEventListener('input', (e) => { if (e.target.id === 'imp') { ui.pendingImport = null; const m = $('#imp-msg'); if (m) m.innerHTML = ''; } });
+
+function satBar(v) { return '<div class="bar" role="img" aria-label="Satisfaction ' + Math.round(v) + ' %"><i class="' + (v >= 70 ? '' : v >= 45 ? 'mid' : 'low') + '" style="width:' + clamp(v, 2, 100) + '%"></i></div>'; }
+const POLN = ['Bas', 'Normal', 'Élevé'];
+const WD = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+function hoursText(T) {
+  const f = (m) => { m = m % 1440; return Math.floor(m / 60) + ' h' + (m % 60 ? String(m % 60).padStart(2, '0') : ''); };
+  return f(T.hours[0]) + '–' + f(T.hours[1]) + (T.days === 'week' ? ' · lun–ven' : '');
+}
+function bdChips(bd) {
+  const items = [['Transport', -bd.stress], ['Bruit', -bd.noise], ['Propreté', -bd.dirt], ['Vue', bd.view], ['Services', -bd.svc], ['Commodités', bd.bonus || 0], ['Rénové', bd.reno || 0], ['Loyer', bd.pol || 0]];
+  return '<div class="chips">' + items.filter((i) => Math.abs(i[1]) >= 1).map((i) => '<span class="chip ' + (i[1] < 0 ? 'neg' : 'pos') + '">' + i[0] + ' ' + (i[1] > 0 ? '+' : '−') + Math.round(Math.abs(i[1])) + '</span>').join('') + '</div>';
+}
+function openRoomSheet() {
+  const s = ui.sel; if (!s) return;
+  const S = E.S;
+  ui.sheet = 'room'; ui.modal = false;
+  let title, body;
+  if (s.kind === 'room') {
+    const r = S.rooms.get(s.id); if (!r) { closeSheet(); return; }
+    const T = E.TYPES[r.type];
+    title = T.name + ' · ' + E.label(r.f);
+    const dm = E.canDemolish(r);
+    let st = '';
+    if (T.lease) {
+      if (!r.reach) st = '<p class="p"><b style="color:var(--bad)">Sans accès.</b> Aucune route continue jusqu’au hall : le locataire ne viendra pas. Reliez cette pièce par des pièces voisines, un escalier ou un ascenseur.</p>';
+      else if (!r.tenant) st = '<p class="p"><b>À louer.</b> Un locataire arrive en général en un à deux jours.</p>';
+      else {
+        const lv = r.lvl || 0, canReno = r.type !== 'parking', pol = r.pol || 0;
+        st = '<dl class="kv"><dt>Satisfaction</dt><dd>' + Math.round(r.sat) + ' %</dd></dl>' + satBar(r.sat) + bdChips(r.bd || {}) +
+          '<dl class="kv"><dt>Loyer</dt><dd>' + eur(E.rentNow(r)) + ' / jour</dd><dt>Propreté</dt><dd>' + Math.round(100 - r.dirt) + ' %</dd>' +
+          (T.cap ? '<dt>Clients hier</dt><dd>' + r.visY + '</dd>' : '') + (r.type !== 'parking' ? '<dt>Trajets moyens</dt><dd>' + r.trip.toFixed(0) + ' s</dd>' : '') +
+          (T.hours ? '<dt>Ouverture</dt><dd>' + hoursText(T) + '</dd>' : '') +
+          (canReno ? '<dt>Rénovation</dt><dd>' + ['Standard', 'Rénové ★', 'Luxe ★★'][lv] + '</dd>' : '') +
+          (T.rent ? '<dt>Politique de loyer</dt><dd>' + POLN[pol + 1] + '</dd>' : '') + '</dl>';
+        const bt = [];
+        if (canReno) bt.push('<button class="btn" data-act="reno"' + (lv >= 2 ? ' disabled' : '') + '>' + (lv >= 2 ? 'Luxe atteint' : 'Rénover · ' + eur(E.upgradeRoomCost(r))) + '</button>');
+        if (T.rent) bt.push('<button class="btn" data-act="pol">Loyer : ' + POLN[pol + 1] + '</button>');
+        if (bt.length) st += '<div class="acts">' + bt.join('') + '</div><p class="p fine">Rénover augmente la satisfaction et le loyer. Un loyer élevé rapporte plus mais mécontente ; un loyer bas fidélise.</p>';
+      }
+    } else if (T.service) {
+      st = '<p class="p">' + T.desc + '</p>' + (!r.reach && T.fx !== 'solar' ? '<p class="p"><b style="color:var(--bad)">Sans accès.</b> Reliez cette pièce au hall : sans accès, elle ne produit aucun effet.</p>' : '') +
+        (T.income ? '<dl class="kv"><dt>Revenu</dt><dd>' + eur(T.income) + ' / jour</dd></dl>' : '');
+    } else st = '<p class="p">' + T.desc + '</p>';
+    body = st + '<div class="acts"><button class="btn bad" data-act="demolish"' + (dm.ok ? '' : ' disabled') + '>Démolir' + (dm.ok ? ' (+' + eur(dm.refund) + ')' : '') + '</button></div>' + (dm.ok ? '' : '<p class="p">' + dm.reason + '.</p>');
+  } else {
+    const sh = S.shafts.get(s.id); if (!sh) { closeSheet(); return; }
+    title = 'Ascenseur · ' + E.label(sh.f0) + ' à ' + E.label(sh.f1);
+    const top = E.roomAt(sh.f1, sh.col), dm = E.canDemolish(top);
+    body = '<dl class="kv"><dt>Cabines</dt><dd>' + sh.ncars + ' / ' + E.MAX_CARS + '</dd><dt>Vitesse</dt><dd>Niveau ' + sh.lvl + ' / 3</dd><dt>Attente moyenne</dt><dd>' + Math.round(sh.wavg) + ' s</dd>' +
+      '<dt>En attente maintenant</dt><dd>' + Object.keys(sh.q).reduce((a, k) => a + sh.q[k].length, 0) + '</dd></dl>' +
+      '<div class="acts"><button class="btn" data-act="car+"' + (sh.ncars >= E.MAX_CARS ? ' disabled' : '') + '>+ Cabine · ' + eur(E.CAR_COST) + '</button>' +
+      '<button class="btn" data-act="car-"' + (sh.ncars <= 1 ? ' disabled' : '') + '>− Cabine</button>' +
+      '<button class="btn" data-act="upg"' + (sh.lvl >= 3 || S.rank < 3 ? ' disabled' : '') + '>Moderniser · ' + (sh.lvl >= 3 ? 'max' : S.rank < 3 ? '★3' : eur(E.upgradeCost(sh))) + '</button></div>' +
+      '<div class="acts"><button class="btn bad" data-act="demolish-top"' + (dm.ok ? '' : ' disabled') + '>Retirer l’étage du haut' + (dm.ok ? ' (+' + eur(dm.refund) + ')' : '') + '</button></div>' +
+      '<p class="p">Les cabines suivent les appels et se garent au rez-de-chaussée. Plus de cabines et un moteur plus rapide raccourcissent l’attente.</p>';
+  }
+  ui.keepSel = true;
+  wrap.className = 'layer show'; wrap.innerHTML = sheetHTML('room', title, body);
+  ui.keepSel = false;
+  wrap.style.pointerEvents = 'none';
+}
+
+function doAct(act) {
+  const S = E.S;
+  let res = null;
+  const s = ui.sel;
+  if (act === 'demolish' && s && s.kind === 'room') { res = E.demolish(s.id); if (res.ok) { toast('Démoli, remboursé ' + eur(res.refund) + '.'); ui.sel = null; closeSheet(); } }
+  else if (act === 'demolish-top' && s && s.kind === 'shaft') {
+    const sh = S.shafts.get(s.id); const top = E.roomAt(sh.f1, sh.col);
+    res = E.demolish(top.id);
+    if (res.ok) { if (S.shafts.has(s.id)) openRoomSheet(); else { ui.sel = null; closeSheet(); } }
+  }
+  else if (act === 'reno' && s && s.kind === 'room') { res = E.upgradeRoom(s.id); if (res.ok) { toast('Rénovation terminée', 'good'); openRoomSheet(); } }
+  else if (act === 'pol' && s && s.kind === 'room') {
+    const r = E.S.rooms.get(s.id), nx = { 0: 1, 1: -1, '-1': 0 }[r.pol || 0];
+    res = E.setPolicy(s.id, nx); if (res.ok) openRoomSheet();
+  }
+  else if (act === 'car+' && s) res = E.addCar(s.id);
+  else if (act === 'car-' && s) res = E.removeCar(s.id);
+  else if (act === 'upg' && s) res = E.upgradeShaft(s.id);
+  else if (act === 'borrow') res = E.borrow();
+  else if (act === 'repay') res = E.repay();
+  else if (act === 'land-l') res = E.buyLand('l');
+  else if (act === 'land-r') res = E.buyLand('r');
+  else if (act === 'save-now') {
+    const ok = save(true);
+    toast(ok ? 'Partie sauvegardée' : 'Le navigateur refuse l’enregistrement : exportez la partie.', ok ? 'good' : 'warn');
+    if (!ok && ui.sheet === 'menu') renderMenu();
+    return;
+  }
+  else if (act === 'cloud-up') { cloudUp(false); return; }
+  else if (act === 'cloud-up-force') { cloudUp(true); return; }
+  else if (act === 'cloud-down') { cloudDown(); return; }
+  else if (act === 'exp') { doExport(); return; }
+  else if (act === 'copy') { doCopy(); return; }
+  else if (act === 'imp-check') { doImportCheck(); return; }
+  else if (act === 'imp-go') { doImportGo(); return; }
+  else if (act === 'mute') { ui.muted = !ui.muted; LS.set('verticale-mute', ui.muted ? '1' : '0'); renderMenu(); return; }
+  else if (act === 'newgame') { if (!ui.confirmNew) { ui.confirmNew = true; renderMenu(); return; } newGameStart(true); return; }
+  else if (act === 'start') { closeSheet(); LS.set('verticale-seen', '1'); resumeIfModal(); return; }
+  else if (act === 'restart') { newGameStart(true); return; }
+  else if (act === 'help') { ui.tab = 'help'; renderMenu(); return; }
+  if (res && !res.ok) { toast(res.reason, 'warn'); SOUND.err(); }
+  if (res && res.ok) queueSave();
+  if (ui.sheet === 'room') openRoomSheet(); else if (ui.sheet === 'menu') renderMenu();
+}
+
+function openMenu(tab) {
+  ui.tab = tab || 'goals'; ui.sheet = 'menu'; ui.modal = true; ui.confirmNew = false;
+  if (ui.tool) setTool(null);
+  renderMenu();
+}
+function renderMenu() {
+  const S = E.S;
+  const T = [['goals', 'Objectifs'], ['tower', 'Tour'], ['report', 'Bilan'], ['bank', 'Banque'], ['land', 'Terrain'], ['save', 'Sauvegarde'], ['settings', 'Réglages'], ['help', 'Aide']];
+  const tabs = '<div class="tabs" role="tablist">' + T.map((t) => '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (ui.tab === t[0]) + '">' + t[1] + '</button>').join('') + '</div>';
+  let body = '';
+  if (ui.tab === 'goals') {
+    const rk = S.rank;
+    let rc = '<div class="rankcard"><span class="lbl">Rang actuel</span><div class="stars">' + starsHTML(rk) + '</div>';
+    if (rk < 5) {
+      const np = E.RANK_POP[rk + 1], ns = E.RANK_SAT[rk + 1];
+      rc += '<p class="p" style="margin:6px 0 4px">Pour le rang ★' + (rk + 1) + ' : <b>' + np + ' habitants</b>' + (ns ? ' et <b>' + ns + ' % de satisfaction</b>' : '') + '.</p>' +
+        '<dl class="kv" style="margin:4px 0"><dt>Habitants</dt><dd>' + S.pop + ' / ' + np + '</dd></dl>' + satBarSimple(S.pop / np * 100) +
+        (ns ? '<dl class="kv" style="margin:6px 0 4px"><dt>Satisfaction</dt><dd>' + Math.round(S.avgSat) + ' / ' + ns + ' %</dd></dl>' + satBarSimple(S.avgSat / ns * 100) : '') +
+        '<p class="p" style="margin:8px 0 0">Débloque : ' + unlocks(rk + 1) + '. Hauteur maximale ' + E.label(E.RANK_FLOORS[rk + 1]) + '.</p>';
+    } else rc += '<p class="p" style="margin:6px 0 0">Rang maximal. La tour n’a plus de limite de hauteur au-delà de ' + E.label(45) + '.</p>';
+    rc += '</div>';
+    let list = '';
+    if (S.goalIdx > 3) list += '<p class="fine" style="margin:8px 0 2px">' + S.goalIdx + ' / ' + E.GOALS.length + ' objectifs accomplis</p>';
+    E.GOALS.forEach((g, i) => {
+      if (i < S.goalIdx - 3) return;
+      if (i < S.goalIdx) list += '<div class="goal done"><span class="ck">✓</span><div><b>' + g.t + '</b><small>+' + eur(g.rw) + ' encaissés</small></div></div>';
+      else if (i === S.goalIdx) list += '<div class="goal now"><span class="ck"></span><div><b>' + g.t + '</b><small>Récompense ' + eur(g.rw) + '</small></div></div>';
+      else if (i <= S.goalIdx + 2) list += '<div class="goal"><span class="ck"></span><div><b>' + g.t + '</b><small>Récompense ' + eur(g.rw) + '</small></div></div>';
+    });
+    if (S.goalIdx >= E.GOALS.length) list += '<p class="p">Tous les objectifs sont accomplis. Il ne reste qu’à agrandir la tour.</p>';
+    body = rc + list;
+  } else if (ui.tab === 'tower') {
+    body = towerHTML();
+  } else if (ui.tab === 'report') {
+    const h = S.hist.slice(-14);
+    if (!h.length) body = '<p class="p">Le premier bilan arrive à minuit : loyers encaissés, charges payées.</p>';
+    else {
+      const maxA = Math.max(1000, ...h.map((d) => Math.abs(d.net))), bw = 26, hh = 110, mid = 62;
+      let bars = '';
+      h.forEach((d, i) => {
+        const v = d.net / maxA * 52, x = 8 + i * (bw + 4);
+        bars += '<rect x="' + x + '" y="' + (v >= 0 ? mid - v : mid) + '" width="' + bw + '" height="' + Math.max(1.5, Math.abs(v)) + '" rx="2" fill="' + (v >= 0 ? 'var(--good)' : 'var(--bad)') + '"/><text x="' + (x + bw / 2) + '" y="' + (hh + 10) + '" font-size="9" text-anchor="middle" fill="var(--ink-2)">J' + (d.day + 1) + '</text>';
+      });
+      const wsvg = 16 + h.length * (bw + 4);
+      const L = h[h.length - 1];
+      body = '<div class="lbl">Résultat net par jour</div><div class="chart"><svg viewBox="0 0 ' + wsvg + ' ' + (hh + 16) + '" width="' + Math.max(wsvg, 300) + '" height="' + (hh + 16) + '" role="img" aria-label="Résultat net des derniers jours"><line x1="0" x2="' + wsvg + '" y1="' + mid + '" y2="' + mid + '" stroke="var(--line)"/>' + bars + '</svg></div>' +
+        '<table class="tbl"><tr><td>Loyers (J' + (L.day + 1) + ')</td><td>' + eur(L.rent) + '</td></tr><tr><td>Ventes des commerces</td><td>' + eur(L.sales) + '</td></tr>' + (L.other ? '<tr><td>Autres revenus</td><td>' + eur(L.other) + '</td></tr>' : '') + '<tr><td>Charges et intérêts</td><td>−' + eur(L.costs) + '</td></tr><tr><td>Résultat net</td><td style="color:' + (L.net >= 0 ? 'var(--good)' : 'var(--bad)') + '">' + (L.net >= 0 ? '+' : '−') + eur(Math.abs(L.net)) + '</td></tr></table>';
+    }
+    body += '<table class="tbl"><tr><td>Charges prévues par jour</td><td>' + eur(E.costsPerDay()) + '</td></tr><tr><td>Attractivité de la tour</td><td>' + Math.round(S.attr) + ' / 100</td></tr><tr><td>Satisfaction moyenne</td><td>' + Math.round(S.avgSat) + ' %</td></tr></table>';
+  } else if (ui.tab === 'bank') {
+    body = '<dl class="kv"><dt>Trésorerie</dt><dd>' + eur(S.cash) + '</dd><dt>Dette</dt><dd>' + eur(S.debt) + '</dd><dt>Intérêts</dt><dd>' + eur(S.debt * E.interestRate()) + ' / jour</dd></dl>' +
+      '<p class="p">Un prêt verse <b>20 000 €</b> et se rembourse <b>22 000 €</b>, avec ' + (E.interestRate() * 100).toFixed(1).replace('.', ',') + ' % d’intérêt par jour tant que la dette court' + (S.fx && S.fx.bank ? ' (taux réduit grâce à votre banque)' : '') + '. En dessous de −30 000 € pendant trois jours, c’est la faillite.</p>' +
+      '<div class="acts"><button class="btn pri" data-act="borrow"' + (S.debt >= 60000 ? ' disabled' : '') + '>Emprunter 20 000 €</button><button class="btn" data-act="repay"' + (S.debt <= 0 ? ' disabled' : '') + '>Rembourser 22 000 €</button></div>';
+  } else if (ui.tab === 'land') {
+    const cols = S.owned.r - S.owned.l + 1, cost = E.landCost();
+    body = '<dl class="kv"><dt>Largeur du terrain</dt><dd>' + cols + ' cases</dd><dt>Prix des 4 cases suivantes</dt><dd>' + eur(cost) + '</dd></dl>' +
+      '<p class="p">Un terrain plus large permet des étages plus longs et plusieurs colonnes d’ascenseurs. Chaque achat coûte plus cher que le précédent.</p>' +
+      '<div class="acts"><button class="btn" data-act="land-l"' + (S.owned.l < 4 ? ' disabled' : '') + '>← Acheter à gauche</button><button class="btn" data-act="land-r"' + (S.owned.r > COLS - 5 ? ' disabled' : '') + '>Acheter à droite →</button></div>';
+  } else if (ui.tab === 'save') {
+    body = saveTabHTML();
+  } else if (ui.tab === 'settings') {
+    body = '<div class="acts"><button class="btn" data-act="mute">Son : ' + (ui.muted ? 'coupé' : 'activé') + '</button><button class="btn" data-act="help">Comment jouer</button></div>' +
+      '<p class="p">Pour garder une copie de la partie, la mettre dans le cloud ou la changer d’appareil, ouvrez l’onglet Sauvegarde.</p>' +
+      '<div class="acts"><button class="btn bad" data-act="newgame">' + (ui.confirmNew ? 'Confirmer : tout effacer' : 'Nouvelle partie') + '</button></div>';
+  } else {
+    body = helpHTML();
+  }
+  wrap.className = 'layer show'; wrap.style.pointerEvents = '';
+  wrap.innerHTML = sheetHTML('menu', 'Verticale', body, tabs);
+  ui.sheet = 'menu'; ui.modal = true;
+  if (ui.tab === 'save') { cloudUI(); if (cloud.state === 'ready' && Date.now() - cloud.readAt > 20000) cloudRead(); }
+  const tb = wrap.querySelector('.tabs'), sel = tb && tb.querySelector('[aria-selected="true"]');
+  if (tb && sel) tb.scrollLeft += sel.getBoundingClientRect().left - tb.getBoundingClientRect().left - (tb.clientWidth - sel.offsetWidth) / 2;
+}
+function towerHTML() {
+  const S = E.S, st = E.statsNow(), fmtP = (v) => Math.round(v * 100) + ' %';
+  let h = '<dl class="kv"><dt>Occupation</dt><dd>' + st.tenants + ' / ' + st.leased + ' (' + fmtP(st.occ) + ')</dd></dl><div class="bar"><i class="' + (st.occ >= 0.7 ? '' : st.occ >= 0.4 ? 'mid' : 'low') + '" style="width:' + clamp(st.occ * 100, 2, 100) + '%"></i></div>' +
+    '<dl class="kv"><dt>Habitants et salariés</dt><dd>' + S.pop + '</dd><dt>Satisfaction moyenne</dt><dd>' + Math.round(S.avgSat) + ' %</dd><dt>Attractivité</dt><dd>' + Math.round(S.attr) + ' / 100</dd>' +
+    '<dt>Variété de pièces</dt><dd>' + st.kinds + ' / ' + E.ORDER.length + '</dd><dt>Attente moyenne</dt><dd>' + Math.round(st.wait) + ' s</dd></dl>';
+  h += '<div class="lbl sub">Par catégorie</div><div class="chart"><table class="tbl cols"><tr class="th"><td>Catégorie</td><td>Pièces</td><td>Vides</td><td>Loyers/j</td><td>Charges/j</td></tr>' +
+    E.CATS.filter((c) => st.cats[c[0]]).map((c) => { const o = st.cats[c[0]]; return '<tr><td>' + c[1] + '</td><td>' + o.n + '</td><td>' + (o.vac || '·') + '</td><td>' + (o.rent ? eur(o.rent) : '·') + '</td><td>' + eur(o.up) + '</td></tr>'; }).join('') + '</table></div>';
+  const fx = S.fx || {}, names = { sec: 'Sécurité', tech: 'Technique', trash: 'Déchets', solar: 'Solaire', metro: 'Métro', heli: 'Héliport', bank: 'Banque' };
+  const act = Object.keys(fx).filter((k) => names[k]);
+  h += '<div class="lbl sub">Effets actifs</div>';
+  if (!act.length) h += '<p class="p">Aucun. Les services (sécurité, déchets, local technique, métro…) donnent des bonus à toute la tour.</p>';
+  else {
+    h += '<div class="chips">' + act.map((k) => '<span class="chip pos">' + names[k] + (fx[k] > 1 ? ' ×' + fx[k] : '') + '</span>').join('') + '</div><ul class="fxl">' +
+      act.map((k) => { const t = E.ORDER.map((id) => E.TYPES[id]).find((T) => T.fx === k); return '<li><b>' + t.name + '.</b> ' + t.desc + '</li>'; }).join('') + '</ul>';
+  }
+  h += '<div class="lbl sub">Journal</div>';
+  if (!st.log.length) h += '<p class="p">Rien à signaler pour le moment. Des événements surviennent chaque jour : pannes, fuites, inspections, tournages, fêtes…</p>';
+  else h += '<ul class="jrn">' + st.log.map((l) => '<li class="' + (l.lvl || 'info') + '"><span>J' + (Math.floor(l.t / E.DAY) + 1) + '</span>' + escHTML(l.text) + '</li>').join('') + '</ul>';
+  return h;
+}
+function escHTML(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function saveTabHTML() {
+  const when = ui.savedAt ? fmtWhen(ui.savedAt) : 'pas encore';
+  return '<dl class="kv"><dt>Dernière sauvegarde</dt><dd id="save-at">' + when + '</dd><dt>Enregistrée dans</dt><dd>ce navigateur</dd></dl>' +
+    (ui.saveFail ? '<p class="p warnp"><b>Le navigateur refuse d’enregistrer.</b> Exportez votre partie ci-dessous pour ne pas la perdre.</p>'
+      : '<p class="p">La partie s’enregistre seule à chaque jour de jeu, après chaque construction et quand vous quittez la page.</p>') +
+    '<div class="acts"><button class="btn pri" data-act="save-now">Sauvegarder maintenant</button></div>' +
+    '<div class="lbl sub">Cloud, compte Claude</div><p class="p">Gardez la partie dans un espace privé lié à votre compte, pour la reprendre sur un autre appareil. Rien n’est envoyé sans votre action.</p>' +
+    '<p class="p" id="cloud-info" aria-live="polite"></p><p class="fine">Cet appareil : jour ' + E.dateInfo().day + ', ' + E.S.rooms.size + ' pièces.</p>' +
+    '<div class="acts"><button class="btn" id="btn-up" data-act="cloud-up" disabled>Envoyer vers le cloud</button><button class="btn" id="btn-down" data-act="cloud-down" disabled>Récupérer</button></div><div id="cloud-msg" class="msg" aria-live="polite"></div>' +
+    '<div class="lbl sub">Exporter</div><p class="p">Générez un code pour garder une copie ou continuer sur un autre appareil.</p>' +
+    '<div class="acts"><button class="btn" data-act="exp">Générer le code</button><button class="btn" data-act="copy" id="btn-copy" disabled>Copier</button></div>' +
+    '<textarea id="exp" class="code" readonly rows="3" placeholder="Le code apparaît ici" aria-label="Code de sauvegarde à copier"></textarea><p class="fine" id="exp-msg" aria-live="polite"></p>' +
+    '<div class="lbl sub">Importer</div><p class="p">Collez un code Verticale. La partie en cours sera remplacée.</p>' +
+    '<textarea id="imp" class="code" rows="3" placeholder="VERTICALE1…" aria-label="Code de sauvegarde à importer" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>' +
+    '<div class="acts"><button class="btn" data-act="imp-check">Vérifier le code</button></div><div id="imp-msg" class="msg" aria-live="polite"></div>';
+}
+async function doExport() {
+  const ta = $('#exp'), msg = $('#exp-msg'), cb = $('#btn-copy');
+  if (!ta) return;
+  try {
+    const code = await encodeSave(E.serialize());
+    ui.exportCode = code; ta.value = code; cb.disabled = false;
+    msg.textContent = 'Code de ' + fmt(code.length) + ' caractères. Touchez Copier, puis collez-le dans une note ou un message.';
+  } catch (e) { msg.textContent = 'Impossible de générer le code.'; }
+}
+function doCopy() {
+  const code = ui.exportCode, ta = $('#exp'), msg = $('#exp-msg');
+  if (!code || !ta) return;
+  const fallback = () => { ta.focus(); ta.select(); try { ta.setSelectionRange(0, code.length); } catch (e) { /* ignoré */ } msg.textContent = 'Copie automatique impossible : le texte est sélectionné, copiez-le avec votre clavier.'; };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(() => { msg.textContent = 'Code copié.'; toast('Code copié', 'good'); }, fallback);
+    else fallback();
+  } catch (e) { fallback(); }
+}
+async function doImportCheck() {
+  const ta = $('#imp'), msg = $('#imp-msg');
+  if (!ta) return;
+  ui.pendingImport = null;
+  const showErr = (t) => { msg.innerHTML = '<p class="p err"></p>'; msg.firstChild.textContent = t; };
+  const text = ta.value.trim();
+  if (!text) { showErr('Collez d’abord un code.'); return; }
+  try {
+    const obj = await decodeSave(text);
+    const v = E.validate(obj);
+    if (!v.ok) throw new Error('Ce code n’est pas une partie valide : ' + v.reason);
+    ui.pendingImport = obj;
+    const i = v.info;
+    msg.innerHTML = '<p class="p"><b>Code valide.</b> Tour de ' + i.rooms + ' pièces, jour ' + i.day + ', rang ★' + i.rank + ', trésorerie ' + eur(i.cash) + '. Elle remplacera votre partie actuelle.</p><div class="acts"><button class="btn bad" data-act="imp-go">Remplacer ma partie</button></div>';
+    msg.scrollIntoView({ block: 'nearest' });
+  } catch (e) { showErr(e.message); }
+}
+function doImportGo() {
+  const obj = ui.pendingImport;
+  if (!obj) return;
+  const backup = E.serialize();
+  let ok = false;
+  try { ok = !!E.deserialize(obj); } catch (e) { ok = false; }
+  if (!ok) { try { E.deserialize(backup); } catch (e) { /* ignoré */ } toast('Import impossible : votre partie est conservée.', 'warn'); return; }
+  ui.pendingImport = null; ui.tool = null; ui.ghost = null; ui.sel = null; ui.floats = []; ui.advDismiss = {};
+  E.S.events.length = 0;
+  closeSheet(); buildDock(); renderBuildBar(); fitLot(); save(true);
+  toast('Partie importée : jour ' + E.dateInfo().day, 'good');
+}
+/* cloud : espace privé du compte via la capacité db (absente hors de claude.ai) */
+const cloud = { state: 'init', ref: null, doc: null, readAt: 0, busy: false, err: '' };
+function cloudErr(e) {
+  const c = e && e.code;
+  if (c === 'timeout') return 'Le cloud ne répond pas. Réessayez dans un instant.';
+  if (c === 'quota_exceeded') return 'L’espace cloud de cette page est plein.';
+  if (c === 'resource_exhausted') return 'Trop de demandes d’affilée. Patientez quelques secondes.';
+  if (c === 'revoked') return 'L’accès au cloud a été retiré pour cette page.';
+  if (c === 'invalid_argument') return 'Le cloud a refusé l’écriture : droits insuffisants sur cette page, ou partie trop volumineuse.';
+  return 'Cloud injoignable pour le moment. Réessayez plus tard.';
+}
+function cloudCall(fn) {
+  const once = () => new Promise((res, rej) => {
+    const t = setTimeout(() => rej({ code: 'timeout' }), ui.cloudTimeout || 10000);
+    Promise.resolve().then(fn).then((v) => { clearTimeout(t); res(v); }, (e) => { clearTimeout(t); rej(e); });
+  });
+  return once().catch((e) => (e && e.code === 'unavailable') ? new Promise((r) => setTimeout(r, 500 + Math.random() * 500)).then(once) : Promise.reject(e));
+}
+async function cloudInit() {
+  try {
+    const cl = window.claude;
+    if (!cl || typeof cl.use !== 'function') throw new Error('absent');
+    const [db, user] = await Promise.all([cl.use('db'), cl.use('user')]);
+    const uid = user ? await user.id() : null;
+    if (!db || !uid) throw new Error('absent');
+    cloud.ref = db.doc('data/users/' + uid + '/save'); cloud.state = 'ready';
+  } catch (e) { cloud.state = 'off'; }
+  cloudUI();
+  if (cloud.state === 'ready' && ui.sheet === 'menu' && ui.tab === 'save') cloudRead();
+}
+const cn = (x) => Math.round(Number(x) || 0);
+const cloudSummary = (d) => 'jour ' + cn(d.day) + ', ' + cn(d.rooms) + ' pièces, rang ★' + cn(d.rank);
+function cloudMsg(text, kind, btn) {
+  const m = $('#cloud-msg'); if (!m) return;
+  m.innerHTML = '<p class="p' + (kind === 'err' ? ' err' : '') + '"></p>' + (btn ? '<div class="acts"><button class="btn bad" data-act="' + btn[0] + '">' + btn[1] + '</button></div>' : '');
+  m.firstChild.textContent = text;
+}
+function cloudUI() {
+  const info = $('#cloud-info'); if (!info) return;
+  let t = '';
+  if (cloud.state === 'init') t = 'Connexion au cloud…';
+  else if (cloud.state === 'off') t = 'Indisponible ici. Ouvrez le jeu depuis votre compte claude.ai pour synchroniser votre partie. L’export par code marche partout.';
+  else if (cloud.err) t = cloud.err;
+  else if (cloud.busy && !cloud.readAt) t = 'Lecture du cloud…';
+  else if (cloud.readAt) t = cloud.doc ? 'Dans le cloud : ' + cloudSummary(cloud.doc) + ', envoyée ' + fmtWhen(Number(cloud.doc.savedAt) || 0) + '.' : 'Aucune partie dans le cloud pour l’instant.';
+  info.textContent = t;
+  const ok = cloud.state === 'ready' && !cloud.busy;
+  const up = $('#btn-up'), dn = $('#btn-down');
+  if (up) up.disabled = !ok;
+  if (dn) dn.disabled = !ok || (!!cloud.readAt && !cloud.doc);
+}
+async function cloudRead() {
+  if (cloud.state !== 'ready' || cloud.busy) return;
+  cloud.busy = true; cloud.err = ''; cloudUI();
+  try {
+    const snap = await cloudCall(() => cloud.ref.get());
+    cloud.doc = snap.exists ? snap.data() : null; cloud.readAt = Date.now();
+  } catch (e) { cloud.err = cloudErr(e); }
+  cloud.busy = false; cloudUI();
+}
+async function cloudUp(force) {
+  if (cloud.state !== 'ready' || cloud.busy) return;
+  cloud.busy = true; cloud.err = ''; cloudUI(); cloudMsg('');
+  try {
+    const snap = await cloudCall(() => cloud.ref.get());
+    cloud.doc = snap.exists ? snap.data() : null; cloud.readAt = Date.now();
+    const day = E.dateInfo().day, S = E.S;
+    if (!force && cloud.doc && cn(cloud.doc.day) > day) {
+      cloudMsg('Le cloud contient une partie plus avancée (jour ' + cn(cloud.doc.day) + ' contre jour ' + day + ' ici). L’écraser ?', '', ['cloud-up-force', 'Écraser le cloud']);
+    } else {
+      const code = await encodeSave(E.serialize());
+      const body = { v: 1, code, savedAt: Date.now(), day, rooms: S.rooms.size, cash: Math.round(S.cash), rank: S.rank };
+      await cloudCall(() => cloud.ref.set(body));
+      cloud.doc = body;
+      cloudMsg('Partie envoyée dans le cloud.');
+      toast('Partie envoyée dans le cloud', 'good');
+    }
+  } catch (e) { cloudMsg(cloudErr(e), 'err'); }
+  cloud.busy = false; cloudUI();
+}
+async function cloudDown() {
+  if (cloud.state !== 'ready' || cloud.busy) return;
+  cloud.busy = true; cloud.err = ''; ui.pendingImport = null; cloudUI(); cloudMsg('');
+  try {
+    const snap = await cloudCall(() => cloud.ref.get());
+    cloud.doc = snap.exists ? snap.data() : null; cloud.readAt = Date.now();
+    if (!cloud.doc) cloudMsg('Aucune partie dans le cloud pour l’instant.');
+    else {
+      if (typeof cloud.doc.code !== 'string') throw new Error('Partie du cloud illisible.');
+      const obj = await decodeSave(cloud.doc.code);
+      const v = E.validate(obj);
+      if (!v.ok) throw new Error('Partie du cloud invalide : ' + v.reason);
+      ui.pendingImport = obj;
+      cloudMsg('Partie du cloud : ' + cloudSummary(v.info) + ', trésorerie ' + eur(v.info.cash) + '. Elle remplacera la partie en cours (jour ' + E.dateInfo().day + ').', '', ['imp-go', 'Remplacer ma partie']);
+    }
+  } catch (e) { cloudMsg(e && e.code ? cloudErr(e) : (e && e.message) || 'Partie du cloud illisible.', 'err'); }
+  cloud.busy = false; cloudUI();
+}
+function satBarSimple(p) { return '<div class="bar"><i class="' + (p >= 100 ? '' : p >= 60 ? 'mid' : 'low') + '" style="width:' + clamp(p, 2, 100) + '%"></i></div>'; }
+function starsHTML(n) { let s = ''; for (let i = 1; i <= 5; i++) s += '<i class="' + (i <= n ? 'on' : '') + '">★</i>'; return s; }
+function unlocks(rank) { return E.ORDER.filter((k) => E.TYPES[k].rank === rank).map((k) => E.TYPES[k].name).join(', ') || 'plus de hauteur et de sous-sols'; }
+function helpHTML() {
+  return '<ol class="help"><li><b>Construire.</b> Choisissez une catégorie puis un outil en bas (l’ascenseur est dans <b>Base</b>), touchez la tour pour placer la pièce, puis <b>Construire</b>. Une pièce de l’étage n+1 doit reposer sur quelque chose à l’étage n.</li>' +
+    '<li><b>Relier.</b> Les gens marchent seulement sur des cases contiguës. Au-delà du 2e étage, installez un <b>ascenseur</b> : touchez l’étage de départ puis un autre étage pour l’allonger.</li>' +
+    '<li><b>Louer.</b> Les pièces vides trouvent un locataire en un jour ou deux. Les loyers tombent à minuit.</li>' +
+    '<li><b>Satisfaire.</b> La pastille d’une pièce passe au rouge si l’attente à l’ascenseur est longue, si c’est bruyant ou sale. Un concierge nettoie, une cabine de plus raccourcit les files.</li>' +
+    '<li><b>Diversifier.</b> Commerces, loisirs et services attirent des clients et rendent les logements plus agréables. Les <b>services</b> (sécurité, déchets, technique, jardin, métro, héliport…) agissent sur toute la tour : voyez l’onglet Tour.</li>' +
+    '<li><b>Rénover.</b> Touchez un logement ou un commerce loué pour le rénover (jusqu’au luxe) ou régler son loyer. Des événements surviennent chaque jour : gardez de la trésorerie.</li>' +
+    '<li><b>Monter en rang.</b> Plus d’habitants et plus de satisfaction débloquent de nouveaux bâtiments, de la hauteur et des sous-sols.</li>' +
+    '<li><b>Se déplacer.</b> Un doigt pour faire glisser la vue, deux doigts pour zoomer.</li>' +
+    '<li><b>Sauvegarder.</b> La partie s’enregistre seule. Pour changer d’appareil, envoyez-la dans le cloud ou exportez-la depuis l’onglet Sauvegarde.</li></ol>';
+}
+
+/* ───────── HUD, conseils, notifications ───────── */
+function toast(msg, level, big) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (level ? ' ' + level : '') + (big ? ' big' : '');
+  el.textContent = msg;
+  const box = $('#toasts');
+  while (box.children.length >= 3) box.removeChild(box.firstChild);
+  box.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, big ? 5200 : 3200);
+}
+
+function updateHUD() {
+  const S = E.S, d = E.dateInfo();
+  const cash = $('#h-cash'); cash.textContent = eur(S.cash); cash.classList.toggle('neg', S.cash < 0);
+  $('#h-date').textContent = d.jour + '. ' + d.date + ' ' + d.mois;
+  $('#h-time').textContent = d.hh + ':' + d.mm;
+  $('#h-stars').innerHTML = starsHTML(S.rank);
+  $('#h-pop').textContent = S.pop;
+  const sat = Math.round(S.avgSat);
+  $('#h-sat').textContent = sat;
+  $('#h-dot').style.background = sat >= 70 ? 'var(--good)' : sat >= 45 ? 'var(--warn)' : 'var(--bad)';
+  const pb = $('#btn-pause'); pb.setAttribute('aria-pressed', String(ui.paused || ui.modal));
+  pb.innerHTML = (ui.paused || ui.modal) ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>' : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  $('#btn-speed').textContent = ui.speed + '×';
+  if (ui.dockRank !== S.rank) buildDock(); else refreshDockState();
+  // conseil
+  const adv = S.advice.filter((a) => !(ui.advDismiss[a.id] > S.T));
+  const box = $('#advice');
+  if (!adv.length || ui.tool || ui.sheet) { box.hidden = true; box.innerHTML = ''; ui.advShown = null; }
+  else {
+    const a = adv.sort((x, y) => (y.lvl === 'bad') - (x.lvl === 'bad'))[0];
+    if (ui.advShown !== a.id) {
+      ui.advShown = a.id; box.hidden = false;
+      box.innerHTML = '<div class="adv ' + a.lvl + '"><span>' + a.text + '</span>' + (a.shaft ? '<button class="go" data-adv="go" aria-label="Voir l’ascenseur">Voir</button>' : '') + '<button data-adv="x" aria-label="Masquer le conseil">✕</button></div>';
+    }
+  }
+  if (ui.sheet === 'room') refreshRoomSheet();
+}
+function refreshRoomSheet() {
+  const now = performance.now();
+  if (now - (ui.sheetAt || 0) < 600 || now < (ui.holdUntil || 0)) return;
+  ui.sheetAt = now;
+  if (ui.sel && ((ui.sel.kind === 'room' && !E.S.rooms.has(ui.sel.id)) || (ui.sel.kind === 'shaft' && !E.S.shafts.has(ui.sel.id)))) { ui.sel = null; closeSheet(); return; }
+  openRoomSheet();
+}
+$('#advice').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-adv]'); if (!b) return;
+  const a = E.S.advice.find((x) => x.id === ui.advShown);
+  if (b.dataset.adv === 'x') { if (a) { ui.advDismiss[a.id] = E.S.T + 1440 * 2; } ui.advShown = null; updateHUD(); }
+  else if (a && a.shaft) select({ kind: 'shaft', id: a.shaft });
+});
+
+$('#btn-menu').addEventListener('click', () => openMenu('goals'));
+$('#st-rank').addEventListener('click', () => openMenu('goals'));
+$('#btn-pause').addEventListener('click', () => { ui.paused = !ui.paused; });
+$('#btn-speed').addEventListener('click', () => { ui.speed = SPEEDS[(SPEEDS.indexOf(ui.speed) + 1) % SPEEDS.length]; ui.paused = false; });
+
+function drain() {
+  const S = E.S, ev = S.events.splice(0);
+  const now = performance.now();
+  for (const e of ev) {
+    if (e.k === 'cash') { ui.floats.push({ x: e.x * CW, y: -(e.f + 1) * FH + 6, text: '+' + e.amt + ' €', col: '#8ff0b2', t0: now }); }
+    else if (e.k === 'move') { ui.floats.push({ x: e.x * CW, y: -(e.f + 1) * FH + 6, text: 'Loué', col: '#ffe08a', t0: now }); }
+    else if (e.k === 'toast') toast(e.msg, e.level);
+    else if (e.k === 'sound') { const f = SOUND[e.name]; if (f) f(); }
+    else if (e.k === 'rank') { toast('Rang ★' + e.rank + ' atteint ! Bonus ' + eur(e.bonus) + '. Nouveau : ' + unlocks(e.rank) + '.', 'good', true); }
+    else if (e.k === 'goal') toast('Objectif : ' + e.text + ' · +' + eur(e.reward), 'good');
+    else if (e.k === 'day') {
+      const r = e.rep;
+      toast('Bilan du jour : ' + (r.net >= 0 ? '+' : '−') + eur(Math.abs(r.net)) + ' (loyers ' + eur(r.rent) + ')', r.net >= 0 ? 'good' : 'warn');
+    } else if (e.k === 'save') save(false);
+    else if (e.k === 'over') showOver();
+  }
+}
+
+/* ───────── sauvegarde, démarrage ───────── */
+let saveTimer = 0;
+function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(() => save(false), 1500); }
+function save(manual) {
+  let ok = false;
+  try { ok = LS.set(SAVE_KEY, JSON.stringify(E.serialize())); } catch (e) { ok = false; }
+  if (ok) {
+    ui.savedAt = Date.now(); LS.set('verticale-save-at', String(ui.savedAt)); ui.saveFail = false;
+    const el = $('#save-at'); if (el) el.textContent = fmtWhen(ui.savedAt);
+  } else {
+    if (!ui.saveFail && manual !== true) toast('Sauvegarde automatique indisponible dans ce navigateur. Exportez votre partie (Menu, Sauvegarde).', 'warn', true);
+    ui.saveFail = true;
+  }
+  return ok;
+}
+function fmtWhen(ms) {
+  const d = new Date(ms), n = new Date();
+  const t = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === n.toDateString()) return 'aujourd’hui ' + t;
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' ' + t;
+}
+
+/* export / import : VERTICALE1.<z|r>.<base64url>.<somme de contrôle> */
+function b64u(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function unb64u(t) {
+  t = t.replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  const s = atob(t), a = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+  return a;
+}
+function fnv(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+async function pipeBytes(bytes, stream, cap) {
+  const rd = new Blob([bytes]).stream().pipeThrough(stream).getReader();
+  const parts = []; let n = 0;
+  for (;;) {
+    const r = await rd.read();
+    if (r.done) break;
+    n += r.value.length;
+    if (cap && n > cap) { try { rd.cancel(); } catch (e) { /* ignoré */ } throw new Error('Ce code est trop volumineux pour être une partie.'); }
+    parts.push(r.value);
+  }
+  const out = new Uint8Array(n); let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+async function encodeSave(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  let mode = 'r', data = raw;
+  if (typeof CompressionStream !== 'undefined') {
+    try { data = await pipeBytes(raw, new CompressionStream('deflate-raw'), 0); mode = 'z'; } catch (e) { data = raw; mode = 'r'; }
+  }
+  const body = b64u(data);
+  return 'VERTICALE1.' + mode + '.' + body + '.' + fnv(mode + body);
+}
+async function decodeSave(text) {
+  text = String(text).replace(/\s+/g, '');
+  if (text.length > 600000) throw new Error('Ce code est trop volumineux pour être une partie.');
+  const m = /^VERTICALE1\.([zr])\.([A-Za-z0-9_-]+)\.([0-9a-f]{8})$/.exec(text);
+  if (!m) throw new Error(text.indexOf('VERTICALE1.') === 0 ? 'Code incomplet ou modifié : copiez-le de nouveau en entier.' : 'Format non reconnu. Collez le code complet, qui commence par VERTICALE1.');
+  if (fnv(m[1] + m[2]) !== m[3]) throw new Error('Code incomplet ou modifié : copiez-le de nouveau en entier.');
+  try {
+    let data = unb64u(m[2]);
+    if (m[1] === 'z') {
+      if (typeof DecompressionStream === 'undefined') throw new Error('Ce navigateur ne sait pas lire ce code compressé.');
+      data = await pipeBytes(data, new DecompressionStream('deflate-raw'), 3000000);
+    }
+    return JSON.parse(new TextDecoder().decode(data));
+  } catch (e) {
+    if (/volumineux|ne sait pas/.test(e.message)) throw e;
+    throw new Error('Code illisible : il est peut-être tronqué.');
+  }
+}
+function showOver() {
+  ui.modal = true; ui.sheet = 'over';
+  wrap.className = 'layer show'; wrap.style.pointerEvents = '';
+  wrap.innerHTML = '<div class="back"></div><section class="sheet over" role="dialog" aria-label="Faillite"><header><h2>Faillite</h2></header><div class="sbody"><p class="p">La banque a repris la tour : votre trésorerie est restée sous −30 000 € pendant trois jours. Tenez compte des charges avant de construire, et empruntez avec mesure.</p><div class="acts"><button class="btn pri" data-act="restart">Recommencer</button></div></div></section>';
+}
+function newGameStart(fresh) {
+  if (fresh) LS.del(SAVE_KEY);
+  E.newGame();
+  ui.tool = null; ui.ghost = null; ui.sel = null; ui.floats = []; ui.advDismiss = {}; ui.confirmNew = false;
+  closeSheet(); ui.modal = false;
+  buildDock(); renderBuildBar(); fitLot();
+  ui.paused = false;
+  showWelcome();
+}
+function showWelcome() {
+  ui.modal = true; ui.sheet = 'welcome';
+  wrap.className = 'layer show'; wrap.style.pointerEvents = '';
+  wrap.innerHTML = sheetHTML('menu', 'Bienvenue', '<p class="p">Vous héritez d’un terrain et d’un hall d’entrée. Faites-en une tour que les gens aiment habiter.</p><ol class="help"><li>Dans l’onglet <b>Logement</b>, choisissez <b>Appartement</b> et touchez le rez-de-chaussée à côté du hall.</li><li>Validez avec <b>Construire</b>. Les loyers tombent à minuit.</li><li>Dès le 3e étage, ajoutez un <b>ascenseur</b> (onglet <b>Base</b>).</li></ol><div class="acts"><button class="btn pri" data-act="start">Commencer</button></div>');
+}
+function resumeIfModal() { ui.modal = false; }
+
+let last = 0, bootAt = 0;
+function frame(ts) {
+  const dt = Math.min(0.1, (ts - last) / 1000); last = ts;
+  if (!ui.paused && !ui.modal && !E.S.over) E.tick(dt * ui.speed);
+  drain();
+  if (cam.tx != null) {
+    cam.x += (cam.tx - cam.x) * 0.15; cam.y += (cam.ty - cam.y) * 0.15;
+    if (Math.abs(cam.tx - cam.x) < 0.5 && Math.abs(cam.ty - cam.y) < 0.5) cam.tx = null;
+    clampCam();
+  }
+  draw(ts);
+  if (ts - ui.hudAt > 180) { ui.hudAt = ts; updateHUD(); }
+  requestAnimationFrame(frame);
+}
+
+function start(data) {
+  resize();
+  ui.muted = LS.get('verticale-mute') === '1';
+  ui.savedAt = Number(LS.get('verticale-save-at')) || 0;
+  let loaded = false;
+  const raw = (data && data.save) ? data.save : null;
+  try {
+    if (raw) loaded = !!E.deserialize(raw);
+    else { const s = LS.get(SAVE_KEY); if (s) loaded = !!E.deserialize(JSON.parse(s)); }
+  } catch (e) { loaded = false; }
+  if (!loaded) E.newGame();
+  if (data && data.ui) { ui.speed = data.ui.speed || 2; ui.paused = !!data.ui.paused; }
+  buildDock(); fitLot();
+  if (data && data.cam) { cam.x = data.cam.x; cam.y = data.cam.y; cam.z = data.cam.z; clampCam(); }
+  if (!loaded && LS.get('verticale-seen') !== '1') showWelcome();
+  else if (loaded) toast('Partie reprise : ' + E.dateInfo().jour + '. ' + E.dateInfo().date + ' ' + E.dateInfo().mois);
+  updateHUD();
+  requestAnimationFrame((t) => { last = t; frame(t); });
+  cloudInit();
+}
+
+window.addEventListener('resize', () => { resize(); clampCam(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(false); });
+window.addEventListener('pagehide', () => save(false));
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (ui.tool) setTool(null); else if (ui.sheet) closeSheet(); } });
+
+// mise à jour à chaud : l'état de la partie survit à une republication de la page
+const hot = window.claude && window.claude.hot;
+if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ save: E.serialize(), cam: { x: cam.x, y: cam.y, z: cam.z }, ui: { speed: ui.speed, paused: ui.paused } }));
+if (hot && typeof hot.ready === 'function') hot.ready(start); else start((hot && hot.data) || {});
+
+// accès de test
+
+})();
+
+</script>
+</body></html>

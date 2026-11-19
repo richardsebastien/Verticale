@@ -1,0 +1,11 @@
+{
+  "name": "verticale",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Jeu de gestion de tour en coupe pour mobile, dans l'esprit de Project Highrise.",
+  "scripts": {
+    "build": "node build.js",
+    "build:prod": "PROD=1 node build.js",
+    "build:pages": "PAGES=1 node build.js"
+  }
+}

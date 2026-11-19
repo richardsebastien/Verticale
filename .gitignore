@@ -1,0 +1,4 @@
+node_modules/
+dist/
+test/page.html
+test/*.png
